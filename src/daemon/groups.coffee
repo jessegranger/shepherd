@@ -61,10 +61,8 @@ class Proc
 
 	# Start this process if it isn't already.
 	start: ->
-		if @started
-			return false
-		unless @enabled
-			return false
+		return false if @started
+		return false unless @enabled
 		@expected = true
 		env = { PORT: @port }
 		retryStart = =>

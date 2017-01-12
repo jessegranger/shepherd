@@ -9,6 +9,9 @@ $.extend module.exports, {
 		return false if path of group.monitors
 		group.monitors[path] = $.interval interval, ->
 			for proc in group.procs when proc.expected then do (group, path, interval, status, text, timeout, proc) ->
+				if proc.enabled and not proc.started
+					proc.healthy = false
+					return
 				proc.healthy = undefined
 				fail = (msg) ->
 					countdown?.cancel()
@@ -39,18 +42,27 @@ $.extend module.exports, {
 					fail("request error: " + String(err))
 	unmonitor: (group, path) ->
 		return false unless 'monitors' of group
-		return false unless path of group.monitors
-		group.monitors[path].cancel()
-		delete group.monitors[path]
+		return false if path? and not (path of group.monitors)
+		if path?
+			group.monitors[path].cancel()
+		else for path,check of group.monitors
+			check.cancel()
+			delete group.monitors[path]
 		return true
 	pause: (group, path) ->
 		return false unless 'monitors' of group
-		return false unless path of group.monitors
-		group.monitors[path].pause()
+		return false if path? and not (path of group.monitors)
+		if path?
+			group.monitors[path].pause()
+		else
+			check.pause() for path,check of group.monitors
 		return true
 	resume: (group, path) ->
 		return false unless 'monitors' of group
-		return false unless path of group.monitors
-		group.monitors[path].resume()
+		return false if path? and not (path of group.monitors)
+		if path?
+			group.monitors[path].resume()
+		else
+			check.resume() for path,check of group.monitors
 		return true
 }

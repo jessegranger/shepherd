@@ -32,8 +32,8 @@ class Child
 		return if @last_start then $.now - @last_start else 0
 	uptimeString: ->
 		$( hours = @uptime() / 3600000,
-			 minutes = (hours % 1) * 60,
-			 seconds = (minutes % 1) * 60
+			minutes = (hours % 1) * 60,
+			seconds = (minutes % 1) * 60
 		)
 		.map(-> $.padLeft String(Math.floor @), 2, "0")
 		.join(":")
@@ -180,10 +180,7 @@ class Worker extends Child
 	workers = []
 
 	constructor: (opts, index) ->
-		Child.apply @, [
-			opts = Worker.defaults(opts),
-			index
-		]
+		super opts = Worker.defaults(opts), index
 		workers.push @
 		@log = if opts.prefix
 			$.logger "#{@opts.prefix}[#{@index}]"
@@ -210,10 +207,7 @@ class Server extends Child
 	servers = {}
 
 	constructor: (opts, index) ->
-		Child.apply @, [
-			opts = Server.defaults(opts),
-			index
-		]
+		super opts = Server.defaults(opts), index
 		@port = opts.port + index
 		@log = $.logger "(#{@opts.prefix or @opts.cd}:#{@port})"
 		(servers[opts.port] ?= []).push @

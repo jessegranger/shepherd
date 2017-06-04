@@ -14,7 +14,7 @@
 	"repository": "https://github.com/jldailey/shepherd.git",
 	"dependencies": {
 		"basic-auth":    "latest",
-		"bling":         "latest",
+		"bling":         "0.10.5",
 		"commander":     "latest",
 		"daemon":        "latest",
 		"express":       "latest",

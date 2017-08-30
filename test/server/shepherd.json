@@ -25,7 +25,7 @@
     }
   ],
   "rabbitmq": {
-		"enabled": true
+		"enabled": false
 		"url": "amqp://test:test@130.211.112.10:5672"
 		"channel": "test"
 	}

@@ -6,9 +6,10 @@ if Opts.daemon then require('daemon') { # fork into the background
 $       = require "bling"
 Fs      = require "fs"
 log     = $.logger "[shepherd]"
+exit_soon = (n) => setTimeout (=> process.exit n), 0
 die     = (a...) ->
 	log a...
-	process.exit 1
+	exit_soon 1
 verbose = ->
 	if Opts.verbose then log.apply null, arguments
 
@@ -21,19 +22,19 @@ outputs = {
 # create additional output streams requested by the user
 if Opts.O isnt "-"
 	try
-		retryCount = 1000
+		retryCount = 12
 		do reopen = ->
 			if --retryCount <= 0
 				console.error "Output stream giving up, too many open failures"
 				return
 			(outputs[Opts.O] = Fs.createWriteStream Opts.O, { flags: 'a', mode: 0o640, encoding: 'utf8' })\
-				.on('finish', ->
-					console.error "Output stream finished"
+				.on('finish', (e) ->
+					console.error "Output stream 'finish' event:", e
 					delete outputs[Opts.O]
 					$.delay 0, reopen
 				)
 				.on('error', (err) ->
-					console.error "Output stream error:", err
+					console.error "Output stream 'error' event:", err
 					delete outputs[Opts.O]
 					$.delay 0, reopen
 				)
@@ -60,7 +61,7 @@ if Opts.example
 	d.servers.push Server.defaults()
 	d.workers.push Worker.defaults()
 	console.log JSON.stringify d, null, '  '
-	process.exit 0
+	return exit_soon 0
 
 if Opts.P # write out a pid file
 	verbose "Writing pid file:", Opts.P
@@ -69,7 +70,7 @@ if Opts.P # write out a pid file
 
 verbose "Reading config file:", Opts.F
 Helpers.readJson(Opts.F).wait (err, config) ->
-	if err then die "Failed to open json file:", Opts.F, $.debugStack err
+	if err then die "Failed to open json file:", Opts.F, err.stack
 	config = Herd.defaults(config)
 	errors = Validate.isValidConfig(config)
 	if errors.length then die errors.join "\n"

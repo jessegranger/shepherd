@@ -1,12 +1,13 @@
 
 $ = require 'bling'
 Fs = require 'fs'
+Tnet = require './tnet'
 Chalk = require 'chalk'
 Output = require "./daemon/output"
 Health = require "./daemon/health"
 int = (n) -> parseInt((n ? 0), 10)
 { yesNo, formatUptime, trueFalse } = require "./format"
-{ configFile } = require "./daemon/files"
+{ configFile } = require "./files"
 
 healthSymbol = (v) -> switch v
 	when undefined then Chalk.yellow "?"
@@ -14,8 +15,18 @@ healthSymbol = (v) -> switch v
 	when false then Chalk.red "x"
 
 { Groups, addGroup, removeGroup, simpleAction } = require "./daemon/groups"
+saveConfig = null # fix an import ordering issue
 
-module.exports = {
+warn = (msg) ->
+	echo "[warning]", msg
+	return false
+
+required = (msg, key, label) ->
+	unless msg[key] and msg[key].length
+		return warn "#{label} is required."
+	true
+
+module.exports.Actions = Actions = {
 
 	# Adding a group
 	add: {
@@ -28,11 +39,14 @@ module.exports = {
 		]
 		toMessage: (cmd) ->
 			{ c: 'add', g: cmd.group, d: cmd.cd, x: cmd.exec, n: cmd.count, p: cmd.port }
+		toConfig: (group) ->
+			"add --group #{group.name} --cd #{group.cd} --exec \"#{group.exec}\" --count #{group.n} --grace #{group.grace}" +
+				(if group.port then " --port #{group.port}" else "")
 		onMessage: (msg, client) ->
-			unless msg.g and msg.g.length
-				warn "--group is required with 'add'"
-				return false
-			return addGroup(msg.g, msg.d, msg.x, msg.n, msg.p)
+			required(msg, 'g', "--group is required with 'add'") and
+			required(msg, 'x', "--exec is required with 'add'") and
+			addGroup(msg.g, msg.d, msg.x, msg.n, msg.p) and
+			saveConfig()
 	}
 
 	# Removing a group
@@ -51,7 +65,7 @@ module.exports = {
 			[ "--group <group>", "Start all instances in a group." ]
 		]
 		toMessage: (cmd) -> { c: 'start', g: cmd.group, i: cmd.instance }
-		onMessage: simpleAction 'start', false
+		onMessage: simpleAction 'start'
 	}
 
 	# Stop a group or instance.
@@ -61,7 +75,7 @@ module.exports = {
 			[ "--group <group>", "Stop all instances in a group." ]
 		]
 		toMessage: (cmd) -> { c: 'stop', g: cmd.group, i: cmd.instance }
-		onMessage: simpleAction 'stop', false
+		onMessage: simpleAction 'stop'
 	}
 
 	# Restart a group or instance.
@@ -71,37 +85,41 @@ module.exports = {
 			[ "--group <group>", "Restart all instances in a group." ]
 		]
 		toMessage: (cmd) -> { c: 'restart', g: cmd.group, i: cmd.instance }
-		onMessage: simpleAction 'restart', false
+		onMessage: simpleAction 'restart'
 	}
 
 	# Get the status of everything.
 	status: {
 		toMessage: (cmd) -> { c: 'status' }
 		onResponse: (resp, socket) ->
-			$.log "Outputs"
-			$.log "-------"
+			console.log "Outputs:"
 			for output in resp.outputs
-				$.log "\tURL: " + output
-			$.log ""
-			resp.procs.unshift ["--------", "---", "----", "------", "-------", "-------", "------"]
-			resp.procs.unshift ["Instance", "PID", "Port", "Uptime", "Healthy", "Enabled", "Status"]
-			for line,i in resp.procs
-				if i > 1
+				console.log " + URL: " + output
+			console.log ""
+
+			pad_columns = (a,w=14) ->
+				(($.padLeft String(item ? ''), w) for item,i in a ).join ''
+
+			for group in resp.groups
+				console.log "Group: #{group.name} Count: #{group.n}"
+				console.log pad_columns ["Instance", "PID", "Port", "Uptime", "Healthy", "Enabled", "Status"]
+				for line,i in group.procs
 					line[1] ?= Chalk.red "-"
 					line[3] = formatUptime line[3]
 					line[4] = healthSymbol line[4]
 					line[5] = healthSymbol line[5]
-				$.log ( ($.padLeft String(item ? ''), 14) for item,i in line).join ''
+					console.log pad_columns line
 			socket.end()
 
 		onMessage: (msg, client) ->
 			output = {
-				procs: []
+				groups: []
 				outputs: Output.getOutputUrls()
 			}
 			Groups.forEach (group) ->
-				for proc in group.procs
-					output.procs.push [ proc.id, proc.proc?.pid, proc.port, proc.uptime, proc.healthy, proc.enabled, proc.statusString ]
+				output.groups.push _group = { name: group.name, cd: group.cd, exec: group.exec, n: group.n, port: group.port, grace: group.grace, procs: [] }
+				for proc in group
+					_group.procs.push [ proc.id, proc.proc?.pid, proc.port, proc.uptime, proc.healthy, proc.enabled, proc.statusString ]
 			client.write $.TNET.stringify output
 			return false
 	}
@@ -127,7 +145,7 @@ module.exports = {
 			[ "--group <group>", "Disable all instances in a group." ]
 		]
 		toMessage: (cmd) -> { c: 'disable', g: cmd.group, i: cmd.instance }
-		onMessage: simpleAction 'disable', true
+		onMessage: simpleAction 'disable'
 	}
 
 	# Enable a group or instance.
@@ -137,7 +155,7 @@ module.exports = {
 			[ "--group <group>", "Enable all instances in a group." ]
 		]
 		toMessage: (cmd) -> { c: 'enable', g: cmd.group, i: cmd.instance }
-		onMessage: simpleAction 'enable', true
+		onMessage: simpleAction 'enable'
 	}
 
 	# Scale the number of instance in a group up/down.
@@ -148,15 +166,10 @@ module.exports = {
 		]
 		toMessage: (cmd) -> { c: 'scale', g: cmd.group, n: cmd.count }
 		onMessage: (msg, client) ->
-			unless msg.g and msg.g.length
-				warn "--group is required with 'scale'"
-				return false
-			unless Groups.has(msg.g)
-				warn "Unknown group name passed to --group ('#{msg.g}')"
-				return false
-			group = Groups.get(msg.g)
-			group.scale(msg.n)
-			return true
+			required msg, 'g', "--group is required with 'scale'" and
+			(Groups.has(msg.g) or warn "Unknown group name passed to --group ('#{msg.g}')") and
+			Groups.get(msg.g).scale(msg.n) and
+			saveConfig()
 	}
 
 	# Add/remove log output destinations.
@@ -232,3 +245,4 @@ module.exports = {
 	}
 
 }
+{ saveConfig } = require "./util/config"

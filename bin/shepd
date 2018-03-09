@@ -1,1 +1,2 @@
-../src/daemon/index.coffee
+#!/bin/bash
+node $(dirname $0)/../lib/daemon/index.js $*

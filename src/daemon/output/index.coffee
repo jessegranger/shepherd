@@ -86,7 +86,6 @@ $.log.out = (args...) ->
 	Output.stdout.write str
 
 # Output from the server prepends a timestamp.
-# TODO?: use the new prefix level argument in bling 0.9.4?
 $.log.enableTimestamps()
 
 $.extend module.exports, Output

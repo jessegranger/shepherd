@@ -2,109 +2,77 @@
 
 # this is the master process that maintains the herd of processes
 
-# first, we communicate with children via a journal file
-# this has the series of configuration commands 
 $ = require "bling"
 Fs = require "fs"
 Net = require "net"
 Shell = require "shelljs"
 Chalk = require "chalk"
 Output = require "./output"
-Actions = require("../actions")
-{pidFile,
+{ Groups } = require("./groups")
+{ Actions } = require("../actions")
+{ pidFile,
 	socketFile,
-	configFile } = require "./files"
+	configFile } = require "../files"
+{ readConfig } = require "../util/config"
 
-echo = $.logger "[shepherd-daemon]"
+echo = $.logger "[shepd]"
+
+exit_soon = (n, ms=200) => setTimeout (=> process.exit n), ms
 
 unless 'HOME' of process.env
 	echo "No $HOME in environment, can't place .shepherd directory."
-	process.exit 1
+	return exit_soon 1
 
 readPid = ->
 	try parseInt Fs.readFileSync(pidFile).toString(), 10
 	catch then undefined
 
 handleMessage = (msg, client) ->
-	# each message invokes an action from a registry
-	# defined in src/daemon/actions.coffee
-	action = Actions[msg.c]
-	return unless action
-	doLog = action.onMessage?(msg, client)
-	# if this is an action that came from a real client
-	# (as opposed to from readLog), and it wants to be saved,
-	# then write it to the configuration log
-	if client and doLog
-		addToLog(msg)
+	Actions[msg.c]?.onMessage? msg, client
 
-addToLog = (msg) ->
-	echo "Adding to config log...", msg
-	Fs.appendFileSync configFile, $.TNET.stringify msg
-
-readLog = ->
-	echo "Reading configuration..."
-	try data = Fs.readFileSync configFile
-	catch err
-		if err.code is "ENOENT" then return
-		throw err
-	
-	while data.length > 0
-		[msg, data] = $.TNET.parseOne(data)
-		echo "[shepd start] Replaying command:", msg
-		handleMessage(msg)
-
-clearLog = ->
-	echo "Clearing configuration..."
-	try Fs.writeFileSync configFile, ""
-	catch err
-		if err.code is "ENOENT" then return
-		throw err
-
-exists = (path) -> return try (stat = Fs.statSync path).isFile() or stat.isSocket() catch then false
+exists = (path) -> try (stat = Fs.statSync path).isFile() or stat.isSocket() catch then false
 
 doStop = (exit) ->
-	echo "Stopping..."
 	if pid = readPid()
-		# send a stop command to all running instances
-		echo "Sending stop action to instances..."
-		Actions.stop.onMessage({})
+		echo "Sending stop action..."
+		Actions.stop.onMessage({}) # send a stop command to all running instances
 		# give them a little time to exit gracefully
 		echo "Killing daemon pid: #{pid}..."
 		# then kill the pid from the pid file (our own?)
-		result = Shell.exec "kill #{pid}", { silent: true, async: false }
+		result = Shell.exec "kill #{pid}", { silent: true, async: false } # use Shell.exec for easier stderr peek after
 		if result.stderr.indexOf("No such process") > -1
 			echo "Removing stale PID file and socket."
 			try Fs.unlinkSync(pidFile)
 			try Fs.unlinkSync(socketFile)
 	if exit
 		echo "Exiting with code 0"
-		process.exit 0
+		return exit_soon 0
 
 doStatus = ->
 	echo "Socket:", socketFile, if exists(socketFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
 	echo "PID File:", pidFile, if exists(pidFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
 
 doStart = ->
-	console.log(7)
 	echo "Starting..."
 	if exists(pidFile)
 		echo "Already running as PID:", readPid()
-		process.exit 1
+		return exit_soon 1
 
 	if exists(socketFile)
 		echo "Socket file still exists:", socketFile
-		process.exit 1
-
-	readLog()
-
+		return exit_soon 1
+	
 	echo "Writing PID #{process.pid} to file...", pidFile
 	Fs.writeFileSync(pidFile, process.pid)
+
+	echo "Reading config...", configFile
+	readConfig()
 
 	echo "Listening on master socket...", socketFile
 	socket = Net.Server().listen({ path: socketFile })
 	socket.on 'error', (err) ->
-		echo "socket error:", $.debugStack err
-		process.exit 1
+		echo "Socket error:", $.debugStack err
+		return exit_soon 1
 	socket.on 'connection', (client) ->
 		client.on 'data', (msg) ->
 			msg = $.TNET.parse(msg.toString())
@@ -114,31 +82,33 @@ doStart = ->
 		echo "Shutting down...", signal
 		try Fs.unlinkSync(pidFile)
 		try socket.close()
+		Groups.forEach (group) ->
+			for proc in group
+				proc.expected = false
+		Groups.forEach (group) -> group.stop()
 		if signal isnt 'exit'
-			process.exit 0
+			return exit_soon 0
 
 	for sig in ['SIGINT','SIGTERM','exit']
 		process.on sig, shutdown(sig) 
+	
 
 switch _cmd = $(process.argv).last()
 	when "stop" then doStop(true) # stop and exit
+	when "start" then doStart()
 	when "restart"
 		doStop(false) # stop but dont exit
 		# replace " restart" with " start"
 		cmd = process.argv.join(' ').replace(/ restart$/, " start")
 		# start a new child with the "start" command-line
-		child = Shell.exec(cmd, { silent: true, async: true })
+		console.log "exec:", cmd
+		child = Shell.exec(cmd, { silent: false, async: true })
 		child.unref()
 
-		$.delay 0, -> # give the child a tick to get going
-			# then die
-			process.exit 0
-	when "start" then doStart()
-	when "flush-config" then clearLog()
+		exit_soon 0
 	when "status" then doStatus()
-	when "help", "-h", "--help"
+	else
 		console.log "Usage: shepd <command>"
-		console.log "Commands: start stop restart status flush-config help"
-		process.exit 0
-	else doStatus()
+		console.log "Commands: start stop restart status help"
+		exit_soon 0
 

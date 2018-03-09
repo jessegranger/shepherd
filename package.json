@@ -8,17 +8,14 @@
 	},
 	"scripts": {
 		"test": "make test",
-		"prepublish": "make"
+		"prepare": "make"
 	},
 	"author": "Jesse Dailey <jesse.dailey@gmail.com>",
 	"repository": "https://github.com/jldailey/shepherd.git",
 	"dependencies": {
-		"bling":         "latest",
-		"commander":     "latest",
-		"daemon":        "latest",
-		"loggly":        "latest",
-		"mongodb":       "latest",
-		"shelljs":       "latest",
-		"chalk":         "latest"
+		"bling": "^0.11.8",
+		"chalk": "latest",
+		"minimist-string": "^1.0.2",
+		"shelljs": "^0.8.1"
 	}
 }

@@ -1,4 +1,3 @@
-require './output'
 $ = require 'bling'
 Http = require 'http'
 echo = $.logger "[health]"
@@ -8,7 +7,7 @@ $.extend module.exports, {
 		group.monitors or= Object.create null
 		return false if path of group.monitors
 		group.monitors[path] = $.interval interval, ->
-			for proc in group.procs when proc.expected then do (group, path, interval, status, text, timeout, proc) ->
+			for proc in group when proc.expected then do (group, path, interval, status, text, timeout, proc) ->
 				if proc.enabled and not proc.started
 					proc.healthy = false
 					return

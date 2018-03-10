@@ -60,6 +60,7 @@ isChildOf = (ppid, pid, cb) ->
 
 is_child_of = (procs, ppid, pid) ->
 	proc = procs[pid]
+	# echo "checking #{ppid} in [#{pid}, #{proc.ppid}]"
 	return true if ppid in [pid, proc.ppid]
 	return false if proc.ppid in [proc.pid,0,1,null,undefined,'','0','1']
 	return is_child_of(procs, ppid, proc.ppid)
@@ -108,12 +109,15 @@ waitForPortOwner = (pid, port, timeout, cb) =>
 			for _,proc of procs
 				for _port in proc.ports
 					this_port = _port.split(':')[1]
+					# echo "checking port", this_port, port
 					if this_port is port and is_child_of(procs, pid, proc.pid)
 						clearTimeout _timeout
 						return cb?(null, proc)
 			cb? and setTimeout checkAgain, 400
 
-Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf }
+getProcessTable = refresh_process_table_if_needed
+
+Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable }
 
 if require.main is module
 	start = Date.now()

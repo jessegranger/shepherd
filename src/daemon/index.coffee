@@ -1,21 +1,31 @@
 #!/usr/bin/env coffee
+{ parseArgv } = require '../util/parse-args'
+_cmd = parseArgv()
+if _cmd.path?.length > 0
+	process.env.SHEPHERD_HOME = _cmd.path
 
 # this is the master process that maintains the herd of processes
 
-$ = require "bling"
-Fs = require "fs"
-Net = require "net"
-Shell = require "shelljs"
-Chalk = require "chalk"
-Output = require "./output"
-{ Groups } = require("./groups")
-{ Actions } = require("../actions")
+$ = require 'bling'
+Fs = require 'fs'
+Net = require 'net'
+Shell = require 'shelljs'
+Chalk = require 'chalk'
+{ Groups } = require('./groups')
+{ Actions } = require('../actions')
 { pidFile,
 	socketFile,
-	configFile } = require "../files"
-{ readConfig } = require "../util/config"
+	configFile } = require '../files'
+{ readConfig } = require '../util/config'
+ChildProcess = require 'child_process'
 
-echo = $.logger "[shepd]"
+echo = $.logger "[shepd-#{process.pid}]"
+
+$.log.out = (args...) ->
+	str = args.map(String).join ' '
+	if str[str.length - 1] isnt '\n'
+		str += '\n'
+	process.stdout.write str
 
 exit_soon = (n, ms=200) => setTimeout (=> process.exit n), ms
 
@@ -65,11 +75,10 @@ doStart = ->
 	echo "Writing PID #{process.pid} to file...", pidFile
 	Fs.writeFileSync(pidFile, process.pid)
 
-	echo "Reading config...", configFile
 	readConfig()
 
-	echo "Listening on master socket...", socketFile
-	socket = Net.Server().listen({ path: socketFile })
+	echo "Opening master socket...", socketFile
+	socket = Net.Server().listen path: socketFile
 	socket.on 'error', (err) ->
 		echo "Socket error:", $.debugStack err
 		return exit_soon 1
@@ -92,23 +101,24 @@ doStart = ->
 	for sig in ['SIGINT','SIGTERM','exit']
 		process.on sig, shutdown(sig) 
 	
-
-switch _cmd = $(process.argv).last()
+switch _cmd._[0]
 	when "stop" then doStop(true) # stop and exit
 	when "start" then doStart()
 	when "restart"
 		doStop(false) # stop but dont exit
 		# replace " restart" with " start"
-		cmd = process.argv.join(' ').replace(/ restart$/, " start")
+		cmd = process.argv.join(' ').replace(/ restart/, " start")
 		# start a new child with the "start" command-line
-		console.log "exec:", cmd
-		child = Shell.exec(cmd, { silent: false, async: true })
+		echo "exec:", cmd
+		child = ChildProcess.spawn(cmd, { detached: true, shell: true, stdio: [ process.stdin, process.stdout, process.stderr ] })
+		child.on 'error', (err) -> console.error "Child exec error:", err
 		child.unref()
-
-		exit_soon 0
+		exit_soon 0, 1000
 	when "status" then doStatus()
 	else
+		console.log "Unknown command:", _cmd
 		console.log "Usage: shepd <command>"
 		console.log "Commands: start stop restart status help"
+		console.log "Options: --path <path> default: ~/.shepherd"
 		exit_soon 0
 

@@ -5,11 +5,12 @@ unless 'HOME' of process.env
 
 Shell = require 'shelljs'
 
-basePath = "#{process.env.HOME}/.shepherd"
-Shell.exec("mkdir -p #{basePath}", { silent: true })
+basePath = process.env.SHEPHERD_HOME ? "#{process.env.HOME}/.shepherd"
+Shell.exec("mkdir -p #{basePath}", { silent: true, async: false })
 makePath = (parts...) -> [basePath].concat(parts).join "/"
 module.exports = {
 	pidFile: makePath "pid"
 	socketFile: makePath "socket"
 	configFile: makePath "config"
+	nginxFile: makePath "nginx"
 }

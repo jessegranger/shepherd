@@ -29,6 +29,7 @@ if( $(process.argv).contains('crash-mode') ) {
 requestCount = 0
 
 $.delay(500, function() { // add an artificial startup delay
+	var _port = parseInt(process.env.PORT)|0;
 	Http.createServer(function(req, res) {
 		var fail = function(err) {
 			res.statusCode = 500;
@@ -55,6 +56,6 @@ $.delay(500, function() { // add an artificial startup delay
 			default:
 				finish('{"PORT": ' + process.env.PORT + ', "PID": "' + process.pid + '"}')
 		}
-	}).listen(process.env.PORT);
-	console.log("Listening on port", process.env.PORT)
+	}).listen(_port);
+	console.log("Listening on port", _port);
 })

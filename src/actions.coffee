@@ -18,7 +18,7 @@ healthSymbol = (v) -> switch v
 { Groups, addGroup, removeGroup, simpleAction } = require "./daemon/groups"
 
 warn = (msg) ->
-	echo "[warning]", msg
+	$.log "[warning]", msg
 	return false
 
 required = (msg, key, label) ->

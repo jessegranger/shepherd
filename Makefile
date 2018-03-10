@@ -5,13 +5,13 @@ PASS_FILES=$(shell ls test/*.sh | grep -v "common.sh" | sed -e 's/\.sh/.sh.pass/
 all: $(JS_FILES)
 
 lib/%.js: src/%.coffee
-	@echo "Compiling $<..."
+	# Compiling $<...
 	@(o=`dirname $< | sed -e 's/src/lib/'` && \
 		mkdir -p $$o && \
 		coffee -o $$o -c $<)
 
 static/%.js: static/%.coffee
-	@echo "Compiling $<..."
+	# Compiling $<...
 	@coffee -c $<
 
 test: all $(PASS_FILES)

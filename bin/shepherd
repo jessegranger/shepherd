@@ -1,2 +1,8 @@
 #!/bin/bash
-node $(dirname $0)/../lib/client/index.js $*
+LINK=$(readlink "$0")
+if [ -n "$LINK" ]; then
+  SCRIPT_PATH="$(dirname "$0")/$(dirname "$LINK")/.."
+else
+	SCRIPT_PATH="$(dirname "$0")/.."
+fi
+node "$SCRIPT_PATH/lib/client/index.js" $*

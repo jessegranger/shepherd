@@ -15,7 +15,8 @@
 	"dependencies": {
 		"bling": "^0.11.8",
 		"chalk": "latest",
-		"minimist-string": "^1.0.2",
-		"shelljs": "^0.8.1"
+		"handlebars": "^4.0.11",
+		"shelljs": "^0.8.1",
+		"strip-ansi": "^4.0.0"
 	}
 }

@@ -1,6 +1,6 @@
 {
 	"name": "the-shepherd",
-	"version": "0.2.30",
+	"version": "0.2.99",
 	"description": "Control a herd of wild processes.",
 	"main": "lib/herd.js",
 	"bin": {

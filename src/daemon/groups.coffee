@@ -22,25 +22,28 @@ class Group extends Array
 			port = g.port + i
 		new Proc "#{g.name}-#{i}", g.cd, g.exec, port, g
 	constructor: (@name, @cd, @exec, @n, @port, @grace=DEFAULT_GRACE) ->
+		super()
 		for i in [0...@n] by 1
 			@push createProcess @, i
 		@monitors = Object.create null # used later by health checks
-	scale: (n) ->
-		if (dn = n - @n) > 0
+	scale: (n, cb) ->
+		dn = n - @n
+		progress = $.Progress dn
+		progress.then => saveConfig cb
+		if dn > 0
 			echo "[scale(#{n})] Adding #{dn} instances..."
 			for d in [0...dn] by 1
 				p = createProcess @, @n++
-				p.start()
+				p.start => progress.finish 1
 				@push p
 			echo "[scale(#{n})] @n is now #{@n}"
 		else if dn < 0
 			echo "[scale(#{n})] Trimming #{dn} instances..."
 			while @n > n
-				@pop().stop()
+				@pop().stop => progress.finish 1
 				@n -= 1
 			echo "[scale(#{n})] @n is now #{@n}"
 		else return false
-		saveConfig()
 		true
 	restart: (cb) -> # Slowly kill and restart one at a time
 		do oneStep = (i=0) =>
@@ -58,8 +61,12 @@ class Group extends Array
 		for proc in @
 			proc.stop()
 		cb?()
-	actOnAll: (method) ->
-		(x[method]() for x in @).reduce ((a,x)=>a or x), false
+	actOnAll: (method, cb) ->
+		progress = $.Progress(@length)
+		progress.wait cb
+		for x in @
+			x[method] => progress.finish 1
+		return progress
 	toString: ->
 		"[group #{@name}] " + ("#{if proc.port then "(#{proc.port}) " else ""}#{proc.statusString}" for proc,i in @).join ", "
 
@@ -173,21 +180,23 @@ class Proc
 		@statusString = "restarting"
 		@stop => @start cb
 
-	enable: ->
+	enable: (cb) ->
 		acted = ! @enabled
 		@enabled = true
 		@statusString = "enabled"
-		if acted then @start()
+		if acted then @start cb
+		else cb()
 		acted
 
-	disable: ->
+	disable: (cb) ->
 		acted = @enabled
 		@enabled = false
-		if acted then @stop()
+		if acted then @stop cb
 		@statusString = "disabled"
+		if not acted then cb()
 		acted
 
-actOnInstance = (method, instanceId) ->
+actOnInstance = (method, instanceId, cb) ->
 	return false unless instanceId?.length
 	acted = false
 	chunks = instanceId.split '-'
@@ -195,48 +204,78 @@ actOnInstance = (method, instanceId) ->
 	groupId = chunks.slice(0, chunks.length - 1).join('-')
 	index = parseInt index, 10
 	proc = Groups.get(groupId)?[index]
-	return afterAction method, proc?[method]?()
+	if (not proc) or not (method of proc)
+		return cb('invalid method')
+	proc[method] (ret) =>
+		afterAction method, ret, cb
+	false
 
-actOnGroup = (method, groupId) ->
+actOnGroup = (method, groupId, cb) ->
 	group = Groups.get(groupId)
 	unless group?
 		return false
-	if group?[method]?
-		return group[method]()
-	return afterAction method, group.actOnAll method
+	if (not group)
+		return cb('invalid group')
+	if (method of group)
+		group[method] (ret) =>
+			afterAction method, ret, cb
+	else
+		group.actOnAll method, (ret) =>
+			afterAction method, ret, cb
+	false
 
-actOnAll = (method) ->
+actOnAll = (method, cb) ->
 	acted = false
+	progress = $.Progress(Groups.size) \
+		.then => afterAction method, acted, cb
 	Groups.forEach (group) ->
-		if group[method]?
-			acted = group[method]() or acted
-		else for proc in group
-			acted = proc[method]() or acted
-	return afterAction method, acted
+		if 'function' is typeof group[method]
+			group[method] (ret) =>
+				acted = ret or acted
+				progress.finish 1
+		else for proc in group when method of proc
+			proc[method] (ret) =>
+				acted = ret or acted
+				progress.finish 1
+	progress
 
-addGroup = (name, cd, exec, count, port, grace=DEFAULT_GRACE) ->
+addGroup = (name, cd, exec, count, port, grace=DEFAULT_GRACE, cb) ->
 	return false if Groups.has(name)
 	echo "Adding group:", name, cd, exec, count, port, grace
 	Groups.set name, new Group(name, cd, exec, count, port, grace)
-	return afterAction 'add', true
+	return afterAction 'add', true, cb
 
-removeGroup = (name) ->
+removeGroup = (name, cb) ->
 	return false unless Groups.has(name)
 	echo "Deleting group:", name
 	Groups.delete name
-	return afterAction 'remove', true
+	return afterAction 'remove', true, cb
 
-afterAction = (method, ret) ->
+afterAction = (method, ret, cb) ->
 	if method in ['enable', 'disable', 'add', 'remove']
-		saveConfig()
-	ret
+		saveConfig => cb(ret)
+	else cb(ret)
 
-simpleAction = (method) -> (msg, client) ->
-	echo "simpleAction", method, JSON.stringify(msg)
+simpleAction = (method) -> (msg, client, cb) ->
+	_line = ''
+	targetText = =>
+		if msg.g then "group #{msg.g}"
+		else if msg.i then "instance #{msg.i}"
+		else "everything"
+	switch method
+		when 'start' then _line += "Starting #{targetText()}..."
+		when 'stop' then _line += "Stopping #{targetText()}..."
+		when 'restart' then _line += "Restarting #{targetText()}..."
+		when 'enable' then _line += "Enabling #{targetText()}..."
+		when 'disable' then _line += "Disabling #{targetText()}..."
+	if _line.length > 0
+		echo _line
+	else
+		echo "simpleAction", method, JSON.stringify(msg)
 	switch
-		when msg.g then return actOnGroup method, msg.g
-		when msg.i then return actOnInstance method, msg.i
-		else return actOnAll method
+		when msg.g then return actOnGroup method, msg.g, cb
+		when msg.i then return actOnInstance method, msg.i, cb
+		else return actOnAll method, cb
 
 Object.assign module.exports, { Groups, actOnAll, actOnInstance, addGroup, removeGroup, simpleAction }
 

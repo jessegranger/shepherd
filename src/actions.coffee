@@ -5,10 +5,13 @@ Tnet = require './util/tnet'
 Chalk = require 'chalk'
 Nginx = require './daemon/nginx'
 Health = require './daemon/health'
+Output = require './daemon/output'
 SlimProcess = require './util/process-slim'
+ChildProcess = require 'child_process'
 int = (n) -> parseInt((n ? 0), 10)
 { yesNo, formatUptime, trueFalse } = require "./format"
 { configFile } = require "./files"
+echo = $.logger "-"
 
 healthSymbol = (v) -> switch v
 	when undefined then Chalk.yellow "?"
@@ -43,10 +46,11 @@ module.exports.Actions = Actions = {
 		toConfig: (group) ->
 			"add --group #{group.name} --cd #{group.cd} --exec \"#{group.exec}\" --count #{group.n} --grace #{group.grace}" +
 				(if group.port then " --port #{group.port}" else "")
-		onMessage: (msg, client) ->
-			required(msg, 'g', "--group is required with 'add'") and
-			required(msg, 'x', "--exec is required with 'add'") and
-			addGroup(msg.g, msg.d, msg.x, msg.n, msg.p, msg.ms)
+		onMessage: (msg, client, cb) ->
+			cb null,
+				required(msg, 'g', "--group is required with 'add'") and
+				required(msg, 'x', "--exec is required with 'add'") and
+				addGroup(msg.g, msg.d, msg.x, msg.n, msg.p, msg.ms)
 	}
 
 	# Removing a group
@@ -55,7 +59,7 @@ module.exports.Actions = Actions = {
 			[ "--group <group>", "Name of the group to create." ]
 		]
 		toMessage: (cmd) -> { c: 'remove', g: cmd.group }
-		onMessage: (msg, client) -> removeGroup msg.g
+		onMessage: (msg, client, cb) -> cb null, removeGroup msg.g
 	}
 
 	# Start a group or instance.
@@ -119,12 +123,13 @@ module.exports.Actions = Actions = {
 					console.log pad_columns line
 			socket.end()
 
-		onMessage: (msg, client) ->
+		onMessage: (msg, client, cb) ->
 			output = {
 				start: Date.now()
 				groups: []
 			}
 			SlimProcess.getProcessTable (err, procs) => # force the cache to be fresh
+				if err then return cb(err, false)
 				Groups.forEach (group) ->
 					output.groups.push _group = { name: group.name, cd: group.cd, exec: group.exec, n: group.n, port: group.port, grace: group.grace, procs: [] }
 					for proc in group
@@ -137,24 +142,9 @@ module.exports.Actions = Actions = {
 						_group.procs.push [ proc.id, proc.proc?.pid, proc.port, proc.uptime, proc.healthy, proc.enabled, proc.statusString, pcpu, rss ]
 				output.send = Date.now()
 				client.write $.TNET.stringify output
+				cb null, true
 			return false
 	}
-
-	### TODO:
-	# Tail the current output.
-	tail: {
-		toMessage: (cmd) -> { c: 'tail' }
-		onConnect: (socket) ->
-			$.log "Piping socket to stdout..."
-			socket.pipe(process.stdout)
-			socket.ref()
-			process.on 'exit', -> try socket.end()
-		onMessage: (msg, client) ->
-			$.log "Calling Output.tail...", msg
-			Output.tail(client)
-			return false
-	}
-	###
 
 	# Disable a group or instance.
 	disable: {
@@ -189,24 +179,53 @@ module.exports.Actions = Actions = {
 			Groups.get(msg.g).scale(msg.n)
 	}
 
-	### TODO:
 	# Add/remove log output destinations.
 	log: {
 		options: [
-			[ "--list", "List the current output URLs." ]
-			[ "--url <url>", "Send output to this destination. Supports protocols: console, file, loggly, and mongodb." ]
-			[ "--tee", "Send to this destination, in addition to other destinations." ]
-			[ "--remove", "Remove one url as a log destination." ]
+			[ "--list", "List the current output file." ]
+			[ "--file <file>", "Send output to this log file." ]
+			[ "--disable", "Stop logging to file." ]
+			[ "--clear", "Clear the log file." ]
+			[ "--purge", "(alias for clear)" ]
+			[ "--tail", "Pipe the log output to your console now." ]
 		]
-		toMessage: (cmd) -> { c: 'log', l: (trueFalse cmd.list), u: cmd.url, t: (trueFalse cmd.tee), r: (trueFalse cmd.remove) }
-		onMessage: (msg, client) ->
+		toMessage: (cmd) -> { c: 'log', l: (trueFalse cmd.list), d: (cmd.disable), f: cmd.file, t: (trueFalse cmd.tail), p: (cmd.clear ? cmd.purge) }
+		onMessage: (msg, client, cb) ->
+			send = (obj) =>
+				client?.write $.TNET.stringify [ msg, obj ]
+			if msg.f
+				Output.setOutput msg.f, (err, acted) =>
+					acted and send msg.f
+			if msg.d
+				Output.setOutput null, (err, acted) =>
+					acted and send msg.d
+			if msg.p
+				ChildProcess.spawn("echo > #{Output.getOutputFile()}", { shell: true }).on 'exit', =>
+					send msg.p
+			if client?
+				if msg.l
+					client.write $.TNET.stringify [ msg, Output.getOutputFile() ]
+				if msg.t
+					client.write $.TNET.stringify [ msg, null ]
+					Output.stream.on 'tail', (data) =>
+						client.write $.TNET.stringify [ { t: true }, String(data) ]
+			cb()
+			return false
+		onResponse: (item, socket) ->
+			[ msg, resp ] = item
+			if msg.f
+				echo "Log file set:", msg.f
+			if msg.d
+				echo "Log file disabled."
 			if msg.l
-				client.write(Output.getOutputUrls().toString())
-				return false
+				echo 'Output files:'
+				echo(file) for file in resp
+			if msg.t
+				echo resp ? "Connecting to log tail..."
 			else
-				return Output.setOutput msg.u, msg.t, msg.r
+				socket.end()
+			false
 	}
-	###
 
 	# Add/remove a health check.
 	health: {
@@ -233,13 +252,17 @@ module.exports.Actions = Actions = {
 			z:(trueFalse cmd.pause),
 			r:(trueFalse cmd.resume)
 		}
-		onMessage: (msg) -> return switch
-			when msg.d then Health.unmonitor msg.u
-			when msg.z then Health.pause msg.u
-			when msg.r then Health.resume msg.u
+		onMessage: (msg, client, cb) ->
+			ret = false
+			if msg.d then ret = Health.unmonitor msg.u
+			if msg.z then ret = Health.pause msg.u
+			if msg.r then ret = Health.resume msg.u
 			else
-				return false unless Groups.has(msg.g)
-				Health.monitor Groups.get(msg.g), msg.p, msg.i, msg.s, msg.t, msg.o
+				if Groups.has(msg.g)
+					Health.monitor Groups.get(msg.g), msg.p, msg.i, msg.s, msg.t, msg.o
+				else ret = false
+			cb?(ret)
+			ret
 	}
 
 	# Configure nginx integration.
@@ -251,11 +274,12 @@ module.exports.Actions = Actions = {
 			[ "--keepalive <n>", "How many connections to hold open." ]
 		]
 		toMessage: (cmd) -> { c: 'nginx', f: cmd.file, r: cmd.reload, k: cmd.keepalive, d: trueFalse cmd.disable }
-		onMessage: (msg) ->
+		onMessage: (msg, client, cb) ->
 			if msg.f?.length then Nginx.setFile msg.f
 			if msg.r?.length then Nginx.setReload msg.r
 			if msg.k?.length then Nginx.setKeepAlive msg.k
 			Nginx.setDisabled msg.d
+			cb?()
 	}
 
 	config: {
@@ -263,9 +287,10 @@ module.exports.Actions = Actions = {
 			[ "--purge", "Remove all configuration." ]
 		]
 		toMessage: (cmd) -> { c: 'config', p: (trueFalse cmd.purge) }
-		onMessage: (msg) ->
+		onMessage: (msg, client, cb) ->
 			if msg.p
-				Fs.writeFileSync configFile, ""
+				Fs.writeFile configFile, "", cb
+			false
 	}
 
 }

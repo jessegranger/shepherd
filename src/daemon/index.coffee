@@ -1,8 +1,6 @@
 #!/usr/bin/env coffee
 { parseArgv } = require '../util/parse-args'
-_cmd = parseArgv()
-if _cmd.path?.length > 0
-	process.env.SHEPHERD_HOME = _cmd.path
+_cmd = process.cmdv ?= parseArgv()
 
 # this is the master process that maintains the herd of processes
 
@@ -11,21 +9,19 @@ Fs = require 'fs'
 Net = require 'net'
 Shell = require 'shelljs'
 Chalk = require 'chalk'
+Output = require './output'
 { Groups } = require('./groups')
 { Actions } = require('../actions')
 { pidFile,
 	socketFile,
+	outputFile,
 	configFile } = require '../files'
 { readConfig } = require '../util/config'
 ChildProcess = require 'child_process'
 
-echo = $.logger "[shepd-#{process.pid}]"
+Output.setOutput outputFile
 
-$.log.out = (args...) ->
-	str = args.map(String).join ' '
-	if str[str.length - 1] isnt '\n'
-		str += '\n'
-	process.stdout.write str
+echo = $.logger "[shepd-#{process.pid}]"
 
 exit_soon = (n, ms=200) => setTimeout (=> process.exit n), ms
 
@@ -37,14 +33,13 @@ readPid = ->
 	try parseInt Fs.readFileSync(pidFile).toString(), 10
 	catch then undefined
 
-handleMessage = (msg, client) ->
-	Actions[msg.c]?.onMessage? msg, client
+handleMessage = (msg, client, cb) ->
+	Actions[msg.c]?.onMessage? msg, client, cb
 
 exists = (path) -> try (stat = Fs.statSync path).isFile() or stat.isSocket() catch then false
 
 doStop = (exit) ->
 	if pid = readPid()
-		echo "Sending stop action..."
 		Actions.stop.onMessage({}) # send a stop command to all running instances
 		# give them a little time to exit gracefully
 		echo "Killing daemon pid: #{pid}..."
@@ -62,8 +57,8 @@ doStatus = ->
 	echo "Socket:", socketFile, if exists(socketFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
 	echo "PID File:", pidFile, if exists(pidFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
 
-doStart = ->
-	echo "Starting..."
+started = false
+runDaemon = => # in the foreground
 	if exists(pidFile)
 		echo "Already running as PID:", readPid()
 		return exit_soon 1
@@ -72,10 +67,7 @@ doStart = ->
 		echo "Socket file still exists:", socketFile
 		return exit_soon 1
 	
-	echo "Writing PID #{process.pid} to file...", pidFile
 	Fs.writeFileSync(pidFile, process.pid)
-
-	readConfig()
 
 	echo "Opening master socket...", socketFile
 	socket = Net.Server().listen path: socketFile
@@ -84,8 +76,10 @@ doStart = ->
 		return exit_soon 1
 	socket.on 'connection', (client) ->
 		client.on 'data', (msg) ->
+			start = Date.now()
 			msg = $.TNET.parse(msg.toString())
-			handleMessage(msg, client)
+			handleMessage msg, client, =>
+				echo "Message handled:", msg, "in", (Date.now() - start), "ms"
 
 	shutdown = (signal) -> ->
 		echo "Shutting down...", signal
@@ -100,25 +94,34 @@ doStart = ->
 
 	for sig in ['SIGINT','SIGTERM','exit']
 		process.on sig, shutdown(sig) 
-	
-switch _cmd._[0]
+
+	readConfig()
+	started = true
+
+doStart = (_c='start') => # launch the daemon in the background and exit
+	cmd = process.argv.join(' ').replace(" #{_c}", " daemon")
+	# start a new child with the "start" command-line
+	echo "exec:", cmd
+	devNull = Fs.openSync "/dev/null", 'a+'
+	stdio = [ devNull, devNull, process.stderr ] # just let stderr pass through
+	# stdio = [ process.stdin, process.stdout, process.stderr ]
+	child = ChildProcess.spawn(cmd, { detached: true, shell: true, stdio: stdio })
+	child.on 'error', (err) -> console.error "Child exec error:", err
+	child.unref()
+	exit_soon 0, 1000
+
+switch _c = _cmd._[0]
 	when "stop" then doStop(true) # stop and exit
-	when "start" then doStart()
+	when "start" then doStart('start')
+	when "daemon" then runDaemon()
 	when "restart"
 		doStop(false) # stop but dont exit
-		# replace " restart" with " start"
-		cmd = process.argv.join(' ').replace(/ restart/, " start")
-		# start a new child with the "start" command-line
-		echo "exec:", cmd
-		child = ChildProcess.spawn(cmd, { detached: true, shell: true, stdio: [ process.stdin, process.stdout, process.stderr ] })
-		child.on 'error', (err) -> console.error "Child exec error:", err
-		child.unref()
-		exit_soon 0, 1000
+		doStart('restart')
 	when "status" then doStatus()
 	else
-		console.log "Unknown command:", _cmd
+		console.log "Unknown usage:", _cmd
 		console.log "Usage: shepd <command>"
 		console.log "Commands: start stop restart status help"
-		console.log "Options: --path <path> default: ~/.shepherd"
 		exit_soon 0
 
+true

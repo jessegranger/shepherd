@@ -1,20 +1,25 @@
 #!/usr/bin/env coffee
 { parseArgv } = require '../util/parse-args'
-cmd = parseArgv()
-if cmd.path?.length > 0
-	process.env.SHEPHERD_HOME = cmd.path
-
-Net = require 'net'
-Tnet = require '../util/tnet'
-{ Actions } = require '../actions'
-{ socketFile } = require '../files'
-echo = $.logger '[shepherd]'
-
+cmd = process.cmdv ?= parseArgv()
 _cmd = cmd._[0]
+
 if cmd.help or cmd.h
 	console.log "shepherd <start|stop|restart|status|add|remove|enable|disable>"
 	process.exit 0
-return unless action = Actions[_cmd]
+
+if _cmd is 'init'
+	return require("../files").createBasePath ".", => process.exit 0
+
+{ Actions } = require '../actions'
+unless action = Actions[_cmd]
+	echo "No such action:", _cmd
+	return
+
+Net = require 'net'
+Tnet = require '../util/tnet'
+{ socketFile } = require '../files'
+echo = $.logger '[shepherd]'
+
 
 on_error = (err) ->
 	echo "socket error", $.debugStack err

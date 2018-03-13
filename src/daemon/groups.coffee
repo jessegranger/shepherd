@@ -139,7 +139,7 @@ class Proc
 					SlimProcess.waitForPortOwner @proc.pid, @port, @group.grace, (err, owner) ->
 						if err?
 							echo "Failed to find port owner, err:", err, (Date.now() - _s)
-							return retryStart()
+							return @stop retryStart
 						finishStarting()
 				else # if there is no port to wait for then staying up for a few seconds counts as started
 					checkStarted = setTimeout finishStarting, @grace

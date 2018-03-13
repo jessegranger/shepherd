@@ -109,13 +109,15 @@ class Proc
 					return cb @statusString = "invalid port"
 				if owner.uid isnt process.getuid()
 					return invalidPort()
-				SlimProcess.visitProcessTree process.pid, (proc) =>
-					if proc.pid is owner.pid
-						return invalidPort()
-				if @statusString isnt "invalid port"
-					@statusString = "killing #{owner.pid}"
-					try process.kill owner.pid, 'SIGTERM'
-					setTimeout (=> clearPort cb), 1000
+				SlimProcess.getProcessTable (err, procs) =>
+					SlimProcess.visitProcessTree process.pid, (proc) =>
+						echo "visit:", proc.pid, "looking for", owner.pid, (if proc.pid is owner.pid then "MATCH: invalid port" else "")
+						invalidPort() if proc.pid is owner.pid
+						null
+					if @statusString isnt "invalid port"
+						@statusString = "killing #{owner.pid}"
+						try process.kill owner.pid, 'SIGTERM'
+						setTimeout (=> clearPort cb), 1000
 			else cb()
 		retryStart = =>
 			return done(false) if @started or not @enabled
@@ -165,7 +167,8 @@ class Proc
 					if @expected
 						echo "Exit was not expected, restarting..."
 						return retryStart()
-					@proc?.unref?()
+					if @proc?.pid
+						try @proc?.unref?()
 					@proc = undefined
 				return true
 

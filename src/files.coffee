@@ -1,16 +1,49 @@
+$ = require 'bling'
+Fs = require 'fs'
+ChildProcess = require 'child_process'
+{ parseArgv } = require './util/parse-args'
+process.cmdv ?= parseArgv()
+echo = $.logger "[files]"
 
-unless 'HOME' of process.env
-	"No $HOME in environment, can't place .shepherd directory."
-	process.exit 1
+dirExists = (p) =>
+	try
+		Fs.accessSync(p, Fs.constants.R_OK)
+		return true
+	return false
 
-Shell = require 'shelljs'
+seekForBasePath = =>
+	paths = $(module.filename.split '/').slice(0,-1)
+	while paths.length > 0
+		path = paths.join('/') + '/.shepherd'
+		if dirExists path
+			return path
+		paths.pop()
 
-basePath = process.env.SHEPHERD_HOME ? "#{process.env.HOME}/.shepherd"
-Shell.exec("mkdir -p #{basePath}", { silent: true, async: false })
-makePath = (parts...) -> [basePath].concat(parts).join "/"
-module.exports = {
+if "SHEPHERD_HOME" of process.env
+	basePath = process.env.SHEPHERD_HOME
+else
+	cmd = process.cmdv
+	if cmd.path?
+		basePath = cmd.path + "/.shepherd"
+	else
+		basePath = seekForBasePath()
+dirExists(basePath) and $.log "Using", basePath \
+	or $.log "[warning] No base path found."
+
+createBasePath = (prefix, cb) =>
+	return ChildProcess.spawn("mkdir -p \"#{prefix}/.shepherd\"", { shell: true }).on 'exit', =>
+		echo "Created .shepherd folder..."
+		cb()
+
+makePath = (parts...) =>
+	unless basePath? then undefined
+	else [basePath].concat(parts).join "/"
+
+Object.assign module.exports, {
+	createBasePath,
 	pidFile: makePath "pid"
 	socketFile: makePath "socket"
 	configFile: makePath "config"
 	nginxFile: makePath "nginx"
+	outputFile: makePath "log"
 }

@@ -19,7 +19,6 @@ Output = require './output'
 { readConfig } = require '../util/config'
 ChildProcess = require 'child_process'
 
-Output.setOutput outputFile
 
 echo = $.logger "[shepd-#{process.pid}]"
 
@@ -67,36 +66,37 @@ runDaemon = => # in the foreground
 		echo "Socket file still exists:", socketFile
 		return exit_soon 1
 	
-	Fs.writeFileSync(pidFile, process.pid)
-
-	echo "Opening master socket...", socketFile
-	socket = Net.Server().listen path: socketFile
-	socket.on 'error', (err) ->
-		echo "Socket error:", $.debugStack err
-		return exit_soon 1
-	socket.on 'connection', (client) ->
-		client.on 'data', (msg) ->
-			start = Date.now()
-			msg = $.TNET.parse(msg.toString())
-			handleMessage msg, client, =>
-				echo "Message handled:", msg, "in", (Date.now() - start), "ms"
-
-	shutdown = (signal) -> ->
-		echo "Shutting down...", signal
-		try Fs.unlinkSync(pidFile)
-		try socket.close()
-		Groups.forEach (group) ->
-			for proc in group
-				proc.expected = false
-		Groups.forEach (group) -> group.stop()
-		if signal isnt 'exit'
-			return exit_soon 0
-
-	for sig in ['SIGINT','SIGTERM','exit']
-		process.on sig, shutdown(sig) 
-
-	readConfig()
-	started = true
+	Fs.writeFile pidFile, process.pid, (err) =>
+		if err then return die "Failed to write pid file:", err
+		Output.setOutput outputFile, (err) =>
+			if err then return die "Failed to set output file:", err
+			echo "Opening master socket...", socketFile
+			socket = Net.Server().listen path: socketFile
+			socket.on 'error', (err) ->
+				echo "Failed to open local socket:", $.debugStack err
+				return exit_soon 1
+			socket.on 'connection', (client) ->
+				client.on 'data', (msg) ->
+					start = Date.now()
+					msg = $.TNET.parse(msg.toString())
+					handleMessage msg, client, =>
+						echo "Message handled:", msg, "in", (Date.now() - start), "ms"
+			shutdown = (signal) -> ->
+				echo "Shutting down...", signal
+				try Fs.unlinkSync(pidFile)
+				try socket.close()
+				Groups.forEach (group) ->
+					for proc in group
+						proc.expected = false
+					null
+				Groups.forEach (group) -> group.stop()
+				if signal isnt 'exit'
+					return exit_soon 0
+				null
+			for sig in ['SIGINT','SIGTERM','exit']
+				process.on sig, shutdown(sig) 
+			readConfig()
+			started = true
 
 doStart = (_c='start') => # launch the daemon in the background and exit
 	cmd = process.argv.join(' ').replace(" #{_c}", " daemon")

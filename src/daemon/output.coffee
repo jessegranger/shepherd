@@ -39,7 +39,6 @@ setOutput = (file, cb) =>
 			s = fileStream = Fs.createWriteStream file, { flags: 'a' }
 			outputFile = file
 			s.on 'open', ->
-				console.log "writeStream open:", file
 				s.write "Opened for writing by shepd at " + String(new Date()) + "\n"
 				cb?(null, true)
 			s.on 'close', ->

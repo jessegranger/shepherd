@@ -206,9 +206,18 @@ module.exports.Actions = Actions = {
 				if msg.l
 					client.write $.TNET.stringify [ msg, Output.getOutputFile() ]
 				if msg.t
-					client.write $.TNET.stringify [ msg, null ]
-					Output.stream.on 'tail', (data) =>
-						client.write $.TNET.stringify [ { t: true }, String(data) ]
+					try client.write $.TNET.stringify [ msg, null ]
+					catch err
+						return cb()
+					handler = (data) =>
+						try client.write $.TNET.stringify [ { t: true }, String(data) ]
+						catch err
+							echo "tail socket error:", err.stack ? err
+							detach()
+					detach = => Output.stream.removeListener 'tail', handler
+					client.on 'close', detach
+					client.on 'error', detach
+					Output.stream.on 'tail', handler
 			cb()
 			return false
 		onResponse: (item, socket) ->

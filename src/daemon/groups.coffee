@@ -104,12 +104,18 @@ class Proc
 		clearPort = (cb) =>
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
-				if owner.pid is process.pid or (owner.uid isnt process.getuid())
+				invalidPort = =>
 					@enabled = @expected = @started = @healthy = false
 					return cb @statusString = "invalid port"
-				@statusString = "killing #{owner.pid}"
-				try process.kill owner.pid, 'SIGTERM'
-				setTimeout (=> clearPort cb), 1000
+				if owner.uid isnt process.getuid()
+					return invalidPort()
+				SlimProcess.visitProcessTree process.pid, (proc) =>
+					if proc.pid is owner.pid
+						return invalidPort()
+				if @statusString isnt "invalid port"
+					@statusString = "killing #{owner.pid}"
+					try process.kill owner.pid, 'SIGTERM'
+					setTimeout (=> clearPort cb), 1000
 			else cb()
 		retryStart = =>
 			return done(false) if @started or not @enabled

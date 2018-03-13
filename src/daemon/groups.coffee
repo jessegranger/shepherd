@@ -141,12 +141,17 @@ class Proc
 						done(true)
 				if @port
 					_s = Date.now()
-					echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
-					SlimProcess.waitForPortOwner @proc.pid, @port, @group.grace, (err, owner) ->
-						if err?
-							echo "Failed to find port owner, err:", err, (Date.now() - _s)
-							return @stop retryStart
-						finishStarting()
+					$.delay 50, =>
+						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
+						if not @proc.pid?
+							@statusString = "exec failed"
+							@started = @expected = @enabled = @healthy = false
+							done(false)
+						else SlimProcess.waitForPortOwner @proc.pid, @port, @group.grace, (err, owner) =>
+							if err?
+								echo "Failed to find port owner, err:", err, (Date.now() - _s)
+								return @stop retryStart
+							finishStarting()
 				else # if there is no port to wait for then staying up for a few seconds counts as started
 					checkStarted = setTimeout finishStarting, @grace
 				

@@ -44,7 +44,7 @@ writeNginxFile = (cb) =>
 		cb?()
 
 toConfig = =>
-	"nginx --file '#{Files.nginxFile}' --reload \"#{reload}\" --keepalive #{keepalive}#{if disabled then " --disable" else ""}"
+	"nginx #{if disabled then "--disable " else ""}--file '#{Files.nginxFile}' --reload \"#{reload}\" --keepalive #{keepalive}"
 
 willCall = null
 

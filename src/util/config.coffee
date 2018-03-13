@@ -16,7 +16,7 @@ _reading = false
 saveConfig = ->
 	return if _reading
 	$.log "Saving config..."
-	buf = ""
+	buf = (o = Output.toConfig()) + (o.length and "\n" or "")
 	Groups.forEach (group) ->
 		buf += Actions.add.toConfig(group) + "\n"
 		all_disabled = true
@@ -31,7 +31,6 @@ saveConfig = ->
 				if not proc.enabled
 					buf += "disable --instance #{proc.id}\n"
 	buf += (n = Nginx.toConfig()) + (n.length and "\n" or "")
-	buf += (o = Output.toConfig()) + (o.length and "\n" or "")
 	buf += "start\n"
 	Fs.writeFileSync configFile, buf
 	true

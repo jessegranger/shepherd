@@ -130,7 +130,7 @@ class Proc
 				checkStarted = null
 				@statusString = "starting"
 				echo "exec:", @exec, "as", @id
-				@proc = ChildProcess.exec @exec, { shell: true, cwd: @cd, env: env }
+				@proc = ChildProcess.spawn @exec, { shell: true, cwd: @cd, env: env }
 				finishStarting = =>
 					@started = $.now
 					@cooldown = 25

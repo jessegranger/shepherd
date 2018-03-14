@@ -197,7 +197,7 @@ class Proc
 	stop: (cb) ->
 		@statusString = "stopping"
 		@expected = false
-		if @started and @proc?.pid
+		if @proc?.pid
 			@proc.on 'exit', =>
 				@started = false
 				@statusString = if @enabled then "stopped" else "disabled"

@@ -1,10 +1,12 @@
 
 $ = require 'bling'
+Path = require 'path'
 Nginx = null # placeholder for out of order import
 saveConfig = null
 Shell = require 'shelljs'
 ChildProcess = require 'child_process'
 SlimProcess = require '../util/process-slim'
+{ dirExists } = require '../files'
 
 echo = $.logger "[shepd-#{process.pid}]"
 warn = $.logger "[warning]"
@@ -14,6 +16,9 @@ Groups = new Map()
 # m.clear m.delete m.entries m.forEach m.get m.has m.keys m.set m.size m.values
 
 `const DEFAULT_GRACE = 9000;`
+
+quoted = (s) ->
+	'"' + s.replace(/"/g,'\\"') + '"'
 
 class Group extends Array
 	createProcess = (g, i) ->
@@ -61,6 +66,10 @@ class Group extends Array
 		for proc in @
 			proc.stop()
 		cb?()
+	markAsInvalid: (reason) ->
+		for proc in @
+			proc.markAsInvalid reason
+		@
 	actOnAll: (method, cb) ->
 		progress = $.Progress(@length)
 		progress.wait cb
@@ -69,6 +78,12 @@ class Group extends Array
 		return progress
 	toString: ->
 		"[group #{@name}] " + ("#{if proc.port then "(#{proc.port}) " else ""}#{proc.statusString}" for proc,i in @).join ", "
+	toConfig: ->
+		"add --group #{@name}" +
+			(if @cd isnt "." then " --cd #{quoted @cd}" else "") +
+			" --exec #{quoted @exec} --count #{@n}" +
+			(if @grace isnt DEFAULT_GRACE then " --grace #{@grace}" else "") +
+			(if @port then " --port #{@port}" else "")
 
 class Proc
 	constructor: (@id, @cd, @exec, @port, @group) ->
@@ -105,8 +120,7 @@ class Proc
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
 				invalidPort = =>
-					@enabled = @expected = @started = @healthy = false
-					return cb @statusString = "invalid port"
+					return cb @markAsInvalid "invalid port"
 				if owner.uid isnt process.getuid()
 					return invalidPort()
 				SlimProcess.getProcessTable (err, procs) =>
@@ -132,7 +146,12 @@ class Proc
 				checkStarted = null
 				@statusString = "starting"
 				echo "exec:", @exec, "as", @id
-				echo "opts:", opts = { shell: true, cwd: @cd, env: env }
+				echo "cd:",
+				@cd = Path.resolve(process.cwd(), @cd)
+				# echo "opts:",
+				opts = { shell: true, cwd: @cd, env: env }
+				if not dirExists(@cd)
+					return @stop => @group.markAsInvalid "invalid dir"
 				@proc = ChildProcess.spawn @exec, opts
 				finishStarting = =>
 					@started = $.now
@@ -145,12 +164,14 @@ class Proc
 				if @port
 					_s = Date.now()
 					$.delay 50, =>
-						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
-						if not @proc.pid?
+						if not @proc?
+							return done(false)
+						if not @proc?.pid?
 							@statusString = "exec failed"
 							@started = @expected = @enabled = @healthy = false
-							done(false)
-						else SlimProcess.waitForPortOwner @proc.pid, @port, @group.grace, (err, owner) =>
+							return done(false)
+						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
+						SlimProcess.waitForPortOwner @proc.pid, @port, @group.grace, (err, owner) =>
 							if err?
 								echo "Failed to find port owner, err:", err, (Date.now() - _s)
 								return @stop retryStart
@@ -202,6 +223,10 @@ class Proc
 		if acted then @start cb
 		else cb()
 		acted
+	
+	markAsInvalid: (reason) ->
+		@enabled = @expected = @started = @healthy = false
+		@statusString = reason
 
 	disable: (cb) ->
 		acted = @enabled
@@ -241,50 +266,63 @@ actOnGroup = (method, groupId, cb) ->
 
 actOnAll = (method, cb) ->
 	acted = false
-	progress = $.Progress(Groups.size) \
+	echo "Action: #{method} on all groups..."
+	progress = $.Progress(Groups.size + 1) \
 		.then => afterAction method, acted, cb
 	Groups.forEach (group) ->
 		if 'function' is typeof group[method]
+			echo "Action: #{method} direct on a group starting..."
 			group[method] (ret) =>
+				echo "Action: #{method} direct on a group finished"
 				acted = ret or acted
 				progress.finish 1
 		else for proc in group when method of proc
 			proc[method] (ret) =>
 				acted = ret or acted
 				progress.finish 1
-	progress
+	progress.finish 1
 
-addGroup = (name, cd, exec, count, port, grace=DEFAULT_GRACE, cb) ->
+addGroup = (name, cd=".", exec, count=1, port, grace=DEFAULT_GRACE, cb) ->
 	return false if Groups.has(name)
 	echo "Adding group:", name, cd, exec, count, port, grace
 	Groups.set name, new Group(name, cd, exec, count, port, grace)
 	return afterAction 'add', true, cb
 
 removeGroup = (name, cb) ->
-	return false unless Groups.has(name)
-	echo "Deleting group:", name
-	Groups.delete name
-	return afterAction 'remove', true, cb
+	unless Groups.has(name)
+		echo "No such group:", name
+		return false
+	echo "Removing group:", name
+	g = Groups.get(name)
+	done = $.Progress(g.length).then =>
+		Groups.delete name
+		return afterAction 'remove', true, cb
+	for proc in g
+		proc.stop => done.finish 1
+	return true
 
 afterAction = (method, ret, cb) ->
-	if method in ['enable', 'disable', 'add', 'remove']
-		saveConfig => cb(ret)
-	else cb(ret)
+	# $.log "afterAction:", method, (typeof cb)
+	if method in ['enable', 'disable', 'add', 'remove', 'replace']
+		saveConfig => cb?(ret)
+	else cb?(ret)
+	ret
 
 simpleAction = (method) -> (msg, client, cb) ->
 	_line = ''
-	targetText = =>
+	targetText =
 		if msg.g then "group #{msg.g}"
 		else if msg.i then "instance #{msg.i}"
 		else "everything"
 	switch method
-		when 'start' then _line += "Starting #{targetText()}..."
-		when 'stop' then _line += "Stopping #{targetText()}..."
-		when 'restart' then _line += "Restarting #{targetText()}..."
-		when 'enable' then _line += "Enabling #{targetText()}..."
-		when 'disable' then _line += "Disabling #{targetText()}..."
+		when 'start' then _line += "Starting #{targetText}..."
+		when 'stop' then _line += "Stopping #{targetText}..."
+		when 'restart' then _line += "Restarting #{targetText}..."
+		when 'enable' then _line += "Enabling #{targetText}..."
+		when 'disable' then _line += "Disabling #{targetText}..."
 	if _line.length > 0
 		echo _line
+		client?.write $.TNET.stringify _line
 	else
 		echo "simpleAction", method, JSON.stringify(msg)
 	switch

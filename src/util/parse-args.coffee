@@ -1,7 +1,6 @@
-$ = require '/Users/jesse/Projects/bling/dist/bling'
+$ = require 'bling'
 
 machine = $.StateMachine
-
 
 class ArgumentMachine extends $.StateMachine
 	constructor: (debug=false) ->
@@ -94,8 +93,11 @@ machine = new ArgumentMachine(require.main is module)
 parseArguments = (str) ->
 	machine.run(str, 0).obj
 
+safeQuote = (s) ->
+	return s
 parseArgv = ->
-	parseArguments process.argv.slice(2).map((s)=> if /^[0-9-]/.test(s) or s.indexOf(' ') is -1 then s else "'#{s}'").join(' ')
+	argv = process.argv.slice(2).map(safeQuote).join(' ')
+	parseArguments argv
 
 Object.assign module.exports, { parseArguments, parseArgv }
 
@@ -103,5 +105,6 @@ if require.main is module
 	testStr = """add --group admin-api --cd test/server --exec "(cd bin && bash -c 'node app.js')" --count 1 --grace 3000 --enable --port 9101"""
 	testStr = """add --group runtime_api_pool --count 1 --cd bin --exec "node server/runtime-api/runtime-server.js" --port 8030 --grace 45000"""
 	console.log parseArguments testStr
-	console.log machine.run.toString()
+	# console.log machine.run.toString()
+	console.log parseArgv()
 

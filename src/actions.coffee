@@ -25,14 +25,18 @@ warn = (msg) ->
 	return false
 
 required = (msg, key, label) ->
+	unless msg
+		return warn "msg is required."
 	unless msg[key] and msg[key].length
 		return warn "#{label} is required."
 	true
 
+echoResponse = (resp, socket) -> console.log resp; socket.end()
+
 module.exports.Actions = Actions = {
 
 	# Adding a group
-	add: {
+	add: addAction = {
 		options: [
 			[ "--group <group>", "Name of the group to create." ]
 			[ "--cd <path>", "The working directory to spawn processes in." ]
@@ -43,23 +47,42 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) ->
 			{ c: 'add', g: cmd.group, d: cmd.cd, x: cmd.exec, n: cmd.count, p: cmd.port, ms: cmd.grace }
-		toConfig: (group) ->
-			"add --group #{group.name} --cd #{group.cd} --exec \"#{group.exec}\" --count #{group.n} --grace #{group.grace}" +
-				(if group.port then " --port #{group.port}" else "")
 		onMessage: (msg, client, cb) ->
-			cb null,
+			acted = \
 				required(msg, 'g', "--group is required with 'add'") and
 				required(msg, 'x', "--exec is required with 'add'") and
-				addGroup(msg.g, msg.d, msg.x, msg.n, msg.p, msg.ms)
+				addGroup(msg.g, msg.d, msg.x, msg.n, msg.p, msg.ms, cb)
+			client?.write $.TNET.stringify (if acted then "Group #{msg.g} added." else "No group added.")
+			cb? null, acted
+		onResponse: echoResponse
 	}
 
 	# Removing a group
-	remove: {
+	remove: removeAction = {
 		options: [
 			[ "--group <group>", "Name of the group to create." ]
 		]
 		toMessage: (cmd) -> { c: 'remove', g: cmd.group }
-		onMessage: (msg, client, cb) -> cb null, removeGroup msg.g
+		onMessage: (msg, client, cb) ->
+			acted = \
+				required(msg, 'g', "--group is required with 'add'") and
+				removeGroup msg.g
+			client?.write $.TNET.stringify (if acted then "Group #{msg.g} removed." else "No group removed.")
+			cb? null, acted
+		onResponse: echoResponse
+	}
+
+	# Replace (remove then add) a group
+	replace: {
+		options: addAction.options
+		toMessage: (cmd) ->
+			Object.assign addAction.toMessage(cmd), { c: 'replace' }
+		onMessage: (msg, client, cb) ->
+			echo "in replace.onMessage", msg, (typeof client), (typeof cb)
+			removeAction.onMessage { g: msg.g }, null, =>
+				echo "before addAction.onMessage", msg, (typeof client), (typeof cb)
+				addAction.onMessage msg, client, cb
+		onResponse: echoResponse
 	}
 
 	# Start a group or instance.
@@ -70,6 +93,7 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'start', g: cmd.group, i: cmd.instance }
 		onMessage: simpleAction 'start'
+		onResponse: echoResponse
 	}
 
 	# Stop a group or instance.
@@ -80,6 +104,7 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'stop', g: cmd.group, i: cmd.instance }
 		onMessage: simpleAction 'stop'
+		onResponse: echoResponse
 	}
 
 	# Restart a group or instance.
@@ -90,6 +115,7 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'restart', g: cmd.group, i: cmd.instance }
 		onMessage: simpleAction 'restart'
+		onResponse: echoResponse
 	}
 
 	reload: _restart_action # alias
@@ -106,8 +132,6 @@ module.exports.Actions = Actions = {
 				(($.padLeft String(item ? ''), w[i]) for item,i in a ).join ''
 
 			for group,g in resp.groups
-				# console.log "Group: #{group.name} Count: #{group.n}"
-				# console.log " -- "
 				if g is 0
 					console.log pad_columns ["Instance", "PID", "Port", "Uptime", "Healthy", "Enabled", "Status", "CPU", "RAM"]
 				else
@@ -118,7 +142,7 @@ module.exports.Actions = Actions = {
 					line[3] = formatUptime line[3]
 					line[4] = healthSymbol line[4]
 					line[5] = healthSymbol line[5]
-					line[7] = line[7] + "%"
+					line[7] = parseFloat(line[7]).toFixed(1) + "%"
 					line[8] = $.commaize(Math.round(line[8]/1024)) + "mb"
 					console.log pad_columns line
 			socket.end()
@@ -129,7 +153,7 @@ module.exports.Actions = Actions = {
 				groups: []
 			}
 			SlimProcess.getProcessTable (err, procs) => # force the cache to be fresh
-				if err then return cb(err, false)
+				if err then return cb?(err, false)
 				Groups.forEach (group) ->
 					output.groups.push _group = { name: group.name, cd: group.cd, exec: group.exec, n: group.n, port: group.port, grace: group.grace, procs: [] }
 					for proc in group
@@ -142,7 +166,7 @@ module.exports.Actions = Actions = {
 						_group.procs.push [ proc.id, proc.proc?.pid, proc.port, proc.uptime, proc.healthy, proc.enabled, proc.statusString, pcpu, rss ]
 				output.send = Date.now()
 				client.write $.TNET.stringify output
-				cb null, true
+				cb? null, true
 			return false
 	}
 
@@ -154,6 +178,7 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'disable', g: cmd.group, i: cmd.instance }
 		onMessage: simpleAction 'disable'
+		onResponse: echoResponse
 	}
 
 	# Enable a group or instance.
@@ -164,6 +189,7 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'enable', g: cmd.group, i: cmd.instance }
 		onMessage: simpleAction 'enable'
+		onResponse: echoResponse
 	}
 
 	# Scale the number of instance in a group up/down.
@@ -174,9 +200,16 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'scale', g: cmd.group, n: cmd.count }
 		onMessage: (msg, client) ->
-			required msg, 'g', "--group is required with 'scale'" and
-			(Groups.has(msg.g) or warn "Unknown group name passed to --group ('#{msg.g}')") and
-			Groups.get(msg.g).scale(msg.n)
+			acted = \
+				required msg, 'g', "--group is required with 'scale'" and
+				(Groups.has(msg.g) or warn "Unknown group name passed to --group ('#{msg.g}')") and
+				Groups.get(msg.g).scale(msg.n)
+			if acted
+				client?.write $.TNET.stringify "Scaled group to #{msg.n} processes."
+			else
+				client?.write $.TNET.stringify "Nothing to scale."
+			acted
+		onResponse: echoResponse
 	}
 
 	# Add/remove log output destinations.
@@ -208,7 +241,7 @@ module.exports.Actions = Actions = {
 				if msg.t
 					try client.write $.TNET.stringify [ msg, null ]
 					catch err
-						return cb()
+						return cb?()
 					handler = (data) =>
 						try client.write $.TNET.stringify [ { t: true }, String(data) ]
 						catch err
@@ -218,7 +251,7 @@ module.exports.Actions = Actions = {
 					client.on 'close', detach
 					client.on 'error', detach
 					Output.stream.on 'tail', handler
-			cb()
+			cb?()
 			return false
 		onResponse: (item, socket) ->
 			[ msg, resp ] = item
@@ -230,7 +263,8 @@ module.exports.Actions = Actions = {
 				echo 'Output files:'
 				echo(file) for file in resp
 			if msg.t
-				echo resp ? "Connecting to log tail..."
+				if resp then process.stdout.write resp
+				else echo "Connecting to log tail..."
 			else
 				socket.end()
 			false
@@ -263,15 +297,29 @@ module.exports.Actions = Actions = {
 		}
 		onMessage: (msg, client, cb) ->
 			ret = false
-			if msg.d then ret = Health.unmonitor msg.u
-			if msg.z then ret = Health.pause msg.u
-			if msg.r then ret = Health.resume msg.u
+			send = (x) -> client?.write $.TNET.stringify x
+			if not required(msg, g, "--group is required with 'health'")
+				send "--group is required."
+			else if not Groups.has(msg.g)
+				send "No such group: #{msg.g}"
+			else if msg.d
+				ret = Health.unmonitor Groups.get(msg.g)
+				send "Will stop monitoring #{msg.g}."
+			else if msg.z
+				if ret = Health.pause msg.g
+					send "Pausing monitor of #{msg.g}."
+				else send "Group is not currently monitored."
+			else if msg.r
+				if ret = Health.resume msg.g
+					send "Resuming monitor of #{msg.g}."
+				else send "Group does not have a resumable monitor."
 			else
-				if Groups.has(msg.g)
-					Health.monitor Groups.get(msg.g), msg.p, msg.i, msg.s, msg.t, msg.o
-				else ret = false
+				if ret = Health.monitor Groups.get(msg.g), msg.p, msg.i, msg.s, msg.t, msg.o
+					send "Adding monitor for #{msg.g}."
+				else send "Did not add monitor."
 			cb?(ret)
 			ret
+		onResponse: echoResponse
 	}
 
 	# Configure nginx integration.
@@ -284,11 +332,13 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'nginx', f: cmd.file, r: cmd.reload, k: cmd.keepalive, d: trueFalse cmd.disable }
 		onMessage: (msg, client, cb) ->
-			if msg.f?.length then Nginx.setFile msg.f
-			if msg.r?.length then Nginx.setReload msg.r
-			if msg.k?.length then Nginx.setKeepAlive msg.k
+			if msg.f?.length then Nginx.setFile(msg.f)
+			if msg.r?.length then Nginx.setReload(msg.r)
+			if msg.k?.length then Nginx.setKeepAlive(msg.k)
 			Nginx.setDisabled msg.d
+			client?.write $.TNET.stringify "Applied nginx configuration: #{Nginx.toConfig()}"
 			cb?()
+		onResponse: echoResponse
 	}
 
 	config: {
@@ -297,9 +347,13 @@ module.exports.Actions = Actions = {
 		]
 		toMessage: (cmd) -> { c: 'config', p: (trueFalse cmd.purge) }
 		onMessage: (msg, client, cb) ->
-			if msg.p
+			if required msg, 'p', "--purge is the only option for 'config'"
 				Fs.writeFile configFile, "", cb
+				client?.write $.TNET.stringify "Cleared log file."
+			else
+				client?.write $.TNET.stringify "--purge is the only option for 'config'"
 			false
+		onResponse: echoResponse
 	}
 
 }

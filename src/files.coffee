@@ -12,7 +12,7 @@ dirExists = (p) =>
 	return false
 
 seekForBasePath = =>
-	paths = $(module.filename.split '/').slice(0,-1)
+	paths = $(process.cwd().split '/')
 	while paths.length > 0
 		path = paths.join('/') + '/.shepherd'
 		if dirExists path
@@ -37,10 +37,13 @@ createBasePath = (prefix, cb) =>
 
 makePath = (parts...) =>
 	unless basePath? then undefined
-	else [basePath].concat(parts).join "/"
+	else [basePath].concat(parts).join("/").replace(/\/\//g,'/')
 
 Object.assign module.exports, {
 	createBasePath,
+	dirExists,
+	makePath,
+	basePath,
 	pidFile: makePath "pid"
 	socketFile: makePath "socket"
 	configFile: makePath "config"

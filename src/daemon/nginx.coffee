@@ -19,9 +19,11 @@ upstream {{ name }} {
 }
 
 """
-reload = "service nginx reload"
-keepalive = 32
-disabled = true
+defaults = {
+	reload: reload = "service nginx reload"
+	keepalive: keepalive = 32
+	disabled: disabled = true
+}
 
 setReload = (r) -> reload = r
 setTemplate = (t) -> template = Handlebars.compile(t)
@@ -44,7 +46,11 @@ writeNginxFile = (cb) =>
 		cb?()
 
 toConfig = =>
-	"nginx #{if disabled then "--disable " else ""}--file '#{Files.nginxFile}' --reload \"#{reload}\" --keepalive #{keepalive}"
+	_reload = if reload is defaults.reload then "" else " --reload '#{reload}'"
+	_file = if Files.nginxFile is Files.makePath("nginx") then "" else " --file '#{Files.nginxFile}'"
+	_keepalive = if keepalive is defaults.keepalive then "" else " --keepalive #{keepalive}"
+	_disabled = if disabled then " --disable" else ""
+	"nginx#{_disabled}#{_reload}#{_file}#{_keepalive}"
 
 willCall = null
 

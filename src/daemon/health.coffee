@@ -39,6 +39,7 @@ $.extend module.exports, {
 						fail("response error: " + String(err))
 				req.on 'error', (err) ->
 					fail("request error: " + String(err))
+		return true
 	unmonitor: (group, path) ->
 		return false unless 'monitors' of group
 		return false if path? and not (path of group.monitors)

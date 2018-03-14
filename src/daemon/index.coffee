@@ -5,6 +5,7 @@ _cmd = process.cmdv ?= parseArgv()
 # this is the master process that maintains the herd of processes
 
 $ = require 'bling'
+$.log.enableTimestamps()
 Fs = require 'fs'
 Net = require 'net'
 Shell = require 'shelljs'
@@ -49,12 +50,11 @@ doStop = (exit) ->
 			try Fs.unlinkSync(pidFile)
 			try Fs.unlinkSync(socketFile)
 	if exit
-		echo "Exiting with code 0"
 		return exit_soon 0
 
 doStatus = ->
-	echo "Socket:", socketFile, if exists(socketFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
-	echo "PID File:", pidFile, if exists(pidFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
+	$.log "Socket:", socketFile, if exists(socketFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
+	$.log "PID File:", pidFile, if exists(pidFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
 
 started = false
 runDaemon = => # in the foreground
@@ -65,7 +65,7 @@ runDaemon = => # in the foreground
 	if exists(socketFile)
 		echo "Socket file still exists:", socketFile
 		return exit_soon 1
-	
+
 	Fs.writeFile pidFile, process.pid, (err) =>
 		if err then return die "Failed to write pid file:", err
 		Output.setOutput outputFile, (err) =>
@@ -80,7 +80,7 @@ runDaemon = => # in the foreground
 					start = Date.now()
 					msg = $.TNET.parse(msg.toString())
 					handleMessage msg, client, =>
-						echo "Message handled:", msg, "in", (Date.now() - start), "ms"
+						echo "Command handled:", msg, "in", (Date.now() - start), "ms"
 			shutdown = (signal) -> ->
 				echo "Shutting down...", signal
 				try Fs.unlinkSync(pidFile)
@@ -98,30 +98,35 @@ runDaemon = => # in the foreground
 			readConfig()
 			started = true
 
-doStart = (_c='start') => # launch the daemon in the background and exit
-	cmd = process.argv.join(' ').replace(" #{_c}", " daemon")
+doStart = (exit) => # launch the daemon in the background and exit
+	cmd = process.argv.slice(0,2).join(' ').replace("client/index","daemon/index") + " daemon"
 	# start a new child with the "start" command-line
-	echo "exec:", cmd
+	# echo "exec:", cmd
 	devNull = Fs.openSync "/dev/null", 'a+'
 	stdio = [ devNull, devNull, process.stderr ] # just let stderr pass through
 	# stdio = [ process.stdin, process.stdout, process.stderr ]
 	child = ChildProcess.spawn(cmd, { detached: true, shell: true, stdio: stdio })
 	child.on 'error', (err) -> console.error "Child exec error:", err
 	child.unref()
-	exit_soon 0, 1000
-
-switch _c = _cmd._[0]
-	when "stop" then doStop(true) # stop and exit
-	when "start" then doStart('start')
-	when "daemon" then runDaemon()
-	when "restart"
-		doStop(false) # stop but dont exit
-		doStart('restart')
-	when "status" then doStatus()
-	else
-		console.log "Unknown usage:", _cmd
-		console.log "Usage: shepd <command>"
-		console.log "Commands: start stop restart status help"
+	if exit
 		exit_soon 0
+	true
+
+if require.main is module
+	switch _c = _cmd._[0]
+		when "stop" then doStop(true); console.log("Stopped.")
+		when "start" then doStart(true)
+		when "daemon" then runDaemon()
+		when "restart"
+			doStop(false) # stop but dont exit
+			doStart(true)
+		when "status" then doStatus()
+		else
+			console.log "Unknown usage:", _cmd
+			console.log "Usage: shepd <command>"
+			console.log "Commands: start stop restart status help"
+			exit_soon 0
 
 true
+
+Object.assign module.exports, { doStart, doStop, doStatus }

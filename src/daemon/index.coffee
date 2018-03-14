@@ -80,7 +80,9 @@ runDaemon = => # in the foreground
 					start = Date.now()
 					msg = $.TNET.parse(msg.toString())
 					handleMessage msg, client, =>
-						echo "Command handled:", msg, "in", (Date.now() - start), "ms"
+						_msg = Object.create null
+						for k,v of msg when v? then _msg[k] = v
+						echo "Command handled:", _msg, "in", (Date.now() - start), "ms"
 			shutdown = (signal) -> ->
 				echo "Shutting down...", signal
 				try Fs.unlinkSync(pidFile)

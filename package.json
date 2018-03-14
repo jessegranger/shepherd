@@ -4,8 +4,7 @@
 	"description": "Control a herd of wild processes.",
 	"main": "lib/herd.js",
 	"bin": {
-		"shepherd": "bin/shepherd",
-		"shepd": "bin/shepd"
+		"shep": "bin/shep"
 	},
 	"scripts": {
 		"test": "make test",

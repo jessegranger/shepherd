@@ -3,3 +3,4 @@ node_modules
 lib
 test/*.pass
 static/index.js
+.shepherd

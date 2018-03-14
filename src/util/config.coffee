@@ -56,7 +56,7 @@ readConfig = (cb) ->
 		try
 			line = config_lines.shift()
 			return next() if line.length is 0
-			line = line.replace(/%/g, Files.basePath)
+			line = line.replace(/%/g, basePath)
 			echo line
 			cmd = parseArguments(line)
 			if (_cmd  = cmd._[0]) of Actions

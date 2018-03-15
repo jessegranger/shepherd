@@ -15,15 +15,28 @@ if cmd.help or cmd.h
 exit_soon = (code=0, ms=100) =>
 	setTimeout (=> process.exit code), ms
 
-if _cmd is 'init'
-	echo "Creating base path shepherd here..."
-	return Files.createBasePath ".", exit_soon
-if _cmd is 'up'
-	echo "Starting daemon..."
-	return Daemon.doStart(true)
-if _cmd is 'down'
-	echo "Stopping daemon..."
-	return Daemon.doStop(true)
+doInit = (cb) ->
+	defaultsFile = process.cwd() + "/.shepherd/defaults"
+	echo "Checking for defaults file:", defaultsFile
+	if Files.exists(configFile) and not (cmd.f or cmd.force)
+		echo "Configuration already exists (#{Files.configFile})"
+		cb?()
+	else if Files.exists(defaultsFile)
+		echo "Applying default config..."
+		Fs.copyFile defaultsFile, Files.configFile, cb
+	else
+		echo "Creating base path shepherd here..."
+		Files.createBasePath ".", cb
+	null
+
+switch _cmd # some commands get handled locally, without connecting to the daemon
+	when 'init' then return doInit exit_soon
+	when 'up'
+		echo "Starting daemon..."
+		return Daemon.doStart(true)
+	when 'down'
+		echo "Stopping daemon..."
+		return Daemon.doStop(true)
 
 { Actions } = require '../actions'
 unless action = Actions[_cmd]

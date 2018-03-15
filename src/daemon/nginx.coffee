@@ -49,7 +49,7 @@ toConfig = =>
 	_reload = if reload is defaults.reload then "" else " --reload '#{reload}'"
 	_file = if Files.nginxFile is Files.makePath("nginx") then "" else " --file '#{Files.nginxFile}'"
 	_keepalive = if keepalive is defaults.keepalive then "" else " --keepalive #{keepalive}"
-	_disabled = if disabled then " --disable" else ""
+	_disabled = if disabled then " --disable" else " --enable"
 	"nginx#{_disabled}#{_reload}#{_file}#{_keepalive}"
 
 willCall = null

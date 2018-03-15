@@ -44,6 +44,7 @@ Object.assign module.exports, {
 	dirExists,
 	makePath,
 	basePath,
+	exists: dirExists
 	pidFile: makePath "pid"
 	socketFile: makePath "socket"
 	configFile: makePath "config"

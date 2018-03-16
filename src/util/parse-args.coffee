@@ -97,7 +97,11 @@ safeQuote = (s) ->
 	return s
 parseArgv = ->
 	argv = process.argv.slice(2).map(safeQuote).join(' ')
-	parseArguments argv
+	ret = parseArguments argv
+	ret.quiet or= ret.q
+	ret.verbose or= ret.v
+	ret
+
 
 Object.assign module.exports, { parseArguments, parseArgv }
 

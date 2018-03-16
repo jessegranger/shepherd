@@ -1,6 +1,6 @@
 $ = require 'bling'
 Http = require 'http'
-echo = $.logger "[health]"
+{ echo } = require '../common'
 
 $.extend module.exports, {
 	monitor: (group, path, interval, status, text, timeout) ->

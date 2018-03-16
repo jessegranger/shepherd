@@ -1,9 +1,8 @@
-$ = require 'bling'
+{ $, echo, warn, verbose } = require './common'
 Fs = require 'fs'
 ChildProcess = require 'child_process'
 { parseArgv } = require './util/parse-args'
 process.cmdv ?= parseArgv()
-echo = $.logger "[files]"
 
 dirExists = (p) =>
 	try
@@ -27,8 +26,7 @@ else
 		basePath = cmd.path + "/.shepherd"
 	else
 		basePath = seekForBasePath()
-dirExists(basePath) and $.log "Using", basePath \
-	or $.log "[warning] No base path found."
+dirExists(basePath) and $.log "Using", basePath
 
 createBasePath = (prefix, cb) =>
 	return ChildProcess.spawn("mkdir -p \"#{prefix}/.shepherd\"", { shell: true }).on 'exit', =>

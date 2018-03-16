@@ -1,12 +1,10 @@
 
-$ = require 'bling'
+{ $, echo, warn, verbose } = require '../common'
 Fs = require 'fs'
 Files = require '../files'
 { Groups } = require './groups'
 Handlebars = require 'handlebars'
 ChildProcess = require 'child_process'
-
-echo = $.logger "[shepd-#{process.pid}]"
 
 template = Handlebars.compile """
 upstream {{ name }} {
@@ -40,7 +38,7 @@ generate = =>
 
 writeNginxFile = (cb) =>
 	return cb?() if disabled
-	# echo "Saving nginx file...", Files.nginxFile
+	verbose "Saving nginx file...", Files.nginxFile
 	text = generate()
 	Fs.writeFile Files.nginxFile, text, ->
 		cb?()
@@ -61,7 +59,7 @@ reloadNginx = (cb) =>
 		echo "Reloading nginx..."
 		p = ChildProcess.exec(reload, { shell: true })
 		p.stdout.on 'data', (data) -> $.log "#{reload}", data.toString("utf8")
-		p.stderr.on 'data', (data) -> $.log "#{reload}", data.toString("utf8")
+		p.stderr.on 'data', (data) -> $.log "#{reload} (stderr)", data.toString("utf8")
 	), 2000
 	cb?()
 

@@ -1,5 +1,5 @@
 
-$ = require 'bling'
+{ $, echo, warn, verbose } = require './common'
 Fs = require 'fs'
 Tnet = require './util/tnet'
 Chalk = require 'chalk'
@@ -11,7 +11,6 @@ ChildProcess = require 'child_process'
 int = (n) -> parseInt((n ? 0), 10)
 { yesNo, formatUptime, trueFalse } = require "./format"
 { configFile } = require "./files"
-echo = $.logger "-"
 
 healthSymbol = (v) -> switch v
 	when undefined then Chalk.yellow "?"
@@ -19,10 +18,6 @@ healthSymbol = (v) -> switch v
 	when false then Chalk.red "x"
 
 { Groups, addGroup, removeGroup, simpleAction } = require "./daemon/groups"
-
-warn = (msg) ->
-	$.log "[warning]", msg
-	return false
 
 required = (msg, key, label) ->
 	unless msg

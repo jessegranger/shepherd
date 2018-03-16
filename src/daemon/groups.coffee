@@ -1,5 +1,5 @@
 
-$ = require 'bling'
+{ $, echo, warn, verbose } = require '../common'
 Path = require 'path'
 Nginx = null # placeholder for out of order import
 saveConfig = null
@@ -7,9 +7,6 @@ Shell = require 'shelljs'
 ChildProcess = require 'child_process'
 SlimProcess = require '../util/process-slim'
 { dirExists } = require '../files'
-
-echo = $.logger "[shepd-#{process.pid}]"
-warn = $.logger "[warning]"
 
 # the global herd of processes
 Groups = new Map()
@@ -41,13 +38,11 @@ class Group extends Array
 				p = createProcess @, @n++
 				p.start => progress.finish 1
 				@push p
-			echo "[scale(#{n})] @n is now #{@n}"
 		else if dn < 0
 			echo "[scale(#{n})] Trimming #{dn} instances..."
 			while @n > n
 				@pop().stop => progress.finish 1
 				@n -= 1
-			echo "[scale(#{n})] @n is now #{@n}"
 		else return false
 		true
 	restart: (cb) -> # Slowly kill and restart one at a time
@@ -125,7 +120,6 @@ class Proc
 					return invalidPort()
 				SlimProcess.getProcessTable (err, procs) =>
 					SlimProcess.visitProcessTree process.pid, (proc) =>
-						echo "visit:", proc.pid, "looking for", owner.pid, (if proc.pid is owner.pid then "MATCH: invalid port" else "")
 						invalidPort() if proc.pid is owner.pid
 						null
 					if @statusString isnt "invalid port"
@@ -145,8 +139,8 @@ class Proc
 				return done(false) if err
 				checkStarted = null
 				@statusString = "starting"
-				echo "exec:", @exec, "as", @id
-				echo "cd:",
+				verbose "exec:", @exec, "as", @id
+				verbose "cd:",
 				@cd = Path.resolve(process.cwd(), @cd)
 				# echo "opts:",
 				opts = { shell: true, cwd: @cd, env: env }
@@ -266,14 +260,11 @@ actOnGroup = (method, groupId, cb) ->
 
 actOnAll = (method, cb) ->
 	acted = false
-	echo "Action: #{method} on all groups..."
 	progress = $.Progress(Groups.size + 1) \
 		.then => afterAction method, acted, cb
 	Groups.forEach (group) ->
 		if 'function' is typeof group[method]
-			echo "Action: #{method} direct on a group starting..."
 			group[method] (ret) =>
-				echo "Action: #{method} direct on a group finished"
 				acted = ret or acted
 				progress.finish 1
 		else for proc in group when method of proc
@@ -283,8 +274,11 @@ actOnAll = (method, cb) ->
 	progress.finish 1
 
 addGroup = (name, cd=".", exec, count=1, port, grace=DEFAULT_GRACE, cb) ->
-	return false if Groups.has(name)
-	echo "Adding group:", name, cd, exec, count, port, grace
+	if Groups.has(name)
+		echo "Group already exists. Did you mean 'replace'?"
+		return false
+	echo "Adding group:", name
+	verbose { cd, exec, count, port, grace }
 	Groups.set name, new Group(name, cd, exec, count, port, grace)
 	return afterAction 'add', true, cb
 
@@ -302,7 +296,6 @@ removeGroup = (name, cb) ->
 	return true
 
 afterAction = (method, ret, cb) ->
-	# $.log "afterAction:", method, (typeof cb)
 	if method in ['enable', 'disable', 'add', 'remove', 'replace']
 		saveConfig => cb?(ret)
 	else cb?(ret)
@@ -332,5 +325,6 @@ simpleAction = (method) -> (msg, client, cb) ->
 
 Object.assign module.exports, { Groups, actOnAll, actOnInstance, addGroup, removeGroup, simpleAction }
 
+# fulfill some out-of-order obligations
 Nginx = require './nginx'
 { saveConfig } = require '../util/config'

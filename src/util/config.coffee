@@ -1,5 +1,6 @@
 
-$ = require 'bling'
+{ $, echo, warn, verbose } = require '../common'
+
 Fs = require 'fs'
 Nginx = require '../daemon/nginx'
 Output = require '../daemon/output'
@@ -7,9 +8,6 @@ Output = require '../daemon/output'
 { Actions } = require '../actions'
 { parseArguments } = require './parse-args'
 { configFile, basePath } = require '../files'
-
-echo = $.logger "[config]"
-verbose = echo # TODO: gate this by some param or env
 
 _reading = false
 

@@ -1,11 +1,7 @@
 #!/usr/bin/env coffee
-{ parseArgv } = require '../util/parse-args'
-_cmd = process.cmdv ?= parseArgv()
-
 # this is the master process that maintains the herd of processes
 
-$ = require 'bling'
-$.log.enableTimestamps()
+{ $, cmd, echo, warn, verbose } = require '../common'
 Fs = require 'fs'
 Net = require 'net'
 Shell = require 'shelljs'
@@ -20,10 +16,10 @@ Output = require './output'
 { readConfig } = require '../util/config'
 ChildProcess = require 'child_process'
 
-
-echo = $.logger "[shepd-#{process.pid}]"
-
 exit_soon = (n, ms=200) => setTimeout (=> process.exit n), ms
+die = (msg...) ->
+	console.error msg...
+	exit_soon 1
 
 unless 'HOME' of process.env
 	echo "No $HOME in environment, can't place .shepherd directory."
@@ -39,6 +35,7 @@ handleMessage = (msg, client, cb) ->
 exists = (path) -> try (stat = Fs.statSync path).isFile() or stat.isSocket() catch then false
 
 doStop = (exit) ->
+	echo "Stopping daemon..."
 	if pid = readPid()
 		Actions.stop.onMessage({}) # send a stop command to all running instances
 		# give them a little time to exit gracefully
@@ -49,6 +46,7 @@ doStop = (exit) ->
 			echo "Removing stale PID file and socket."
 			try Fs.unlinkSync(pidFile)
 			try Fs.unlinkSync(socketFile)
+	else echo "Daemon not running."
 	if exit
 		return exit_soon 0
 
@@ -58,6 +56,10 @@ doStatus = ->
 
 started = false
 runDaemon = => # in the foreground
+
+	unless pidFile and socketFile
+		return die "Daemon does not have a base path."
+
 	if exists(pidFile)
 		echo "Already running as PID:", readPid()
 		return exit_soon 1
@@ -101,30 +103,26 @@ runDaemon = => # in the foreground
 			started = true
 
 doStart = (exit) => # launch the daemon in the background and exit
-	cmd = process.argv.slice(0,2).join(' ').replace("client/index","daemon/index") + " daemon"
+	echo "Starting daemon..."
+	_cmd = process.argv.slice(0,2).join(' ').replace("client/index","daemon/index") + " daemon"
 	# start a new child with the "start" command-line
-	# echo "exec:", cmd
 	devNull = Fs.openSync "/dev/null", 'a+'
-	stdio = [ devNull, devNull, process.stderr ] # just let stderr pass through
-	# stdio = [ process.stdin, process.stdout, process.stderr ]
-	child = ChildProcess.spawn(cmd, { detached: true, shell: true, stdio: stdio })
+	stdio = [ devNull, devNull, process.stderr ] # only let stderr pass through
+	child = ChildProcess.spawn(_cmd, { detached: true, shell: true, stdio: stdio })
 	child.on 'error', (err) -> console.error "Child exec error:", err
 	child.unref()
-	if exit
-		exit_soon 0
+	if exit then exit_soon 0
 	true
 
 if require.main is module
-	switch _c = _cmd._[0]
+	switch _c = cmd._[0]
 		when "stop" then doStop(true); console.log("Stopped.")
 		when "start" then doStart(true)
 		when "daemon" then runDaemon()
-		when "restart"
-			doStop(false) # stop but dont exit
-			doStart(true)
+		when "restart" then doStop(false); doStart(true)
 		when "status" then doStatus()
 		else
-			console.log "Unknown usage:", _cmd
+			console.log "Unknown usage:", cmd
 			console.log "Usage: shepd <command>"
 			console.log "Commands: start stop restart status help"
 			exit_soon 0

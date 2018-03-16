@@ -3,22 +3,25 @@ Shell = require('shelljs');
 Fs = require('fs');
 $ = require('bling');
 console.log("Test Server starting on PID:", process.pid);
-["SIGHUP", "SIGINT", "SIGTERM"].forEach(function(signal) {
-	process.on(signal, function() {
+function exit_soon(code, ms) {
+	ms = ms | 100;
+	code = code | 0;
+	setTimeout(function(){ process.exit(code); }, ms);
+}
+["SIGHUP", "SIGINT", "SIGTERM"].forEach((signal) => {
+	process.on(signal, () => {
 		console.log("got signal: " + signal);
 		process.exit(0)
 	})
-});
+})
 
 function crashMode() {
 	console.log("Crashing due to CRASH MODE!");
-	$.delay(100, function() {
-		process.exit(1);
-	})
+	exit_soon(1);
 }
 
-if( $(process.argv).contains('crash-mode') ) {
-	var crashCount = 10, crashFile = '/tmp/crash-mode';
+if( $(process.argv).contains('--crash') ) {
+	var crashCount = 10, crashFile = '/tmp/crash-file'; // TODO: use mktemp
 	try { crashCount = parseInt(String(Fs.readFileSync(crashFile)), 10); } catch(err) { }
 	crashCount = Math.max(0, crashCount - 1)
 	if( crashCount == 0 ) crashCount = 10;

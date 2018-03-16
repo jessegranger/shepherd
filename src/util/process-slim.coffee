@@ -1,8 +1,5 @@
-
-$ = require 'bling'
-$.log.enableTimestamps()
+{ $, echo, warn, verbose } = require '../common'
 ChildProcess = require "child_process"
-echo = $.logger "[process]"
 
 # need to support some queries
 # Wait until a PID (or a child of PID) owns port N
@@ -60,7 +57,6 @@ isChildOf = (ppid, pid, cb) ->
 
 is_child_of = (procs, ppid, pid) ->
 	proc = procs[pid]
-	# echo "checking #{ppid} in [#{pid}, #{proc.ppid}]"
 	return true if ppid in [pid, proc.ppid]
 	return false if proc.ppid in [proc.pid,0,1,null,undefined,'','0','1']
 	return is_child_of(procs, ppid, proc.ppid)
@@ -92,7 +88,6 @@ getPortOwner = (port, cb) =>
 			for _port in proc.ports
 				this_port = _port.split(':')[1]
 				if this_port is port
-					# echo "Port #{port} is owned by:", proc
 					return cb null, proc
 		cb null, null
 
@@ -109,7 +104,6 @@ waitForPortOwner = (pid, port, timeout, cb) =>
 			for _,proc of procs
 				for _port in proc.ports
 					this_port = _port.split(':')[1]
-					# echo "checking port", this_port, port
 					if this_port is port and is_child_of(procs, pid, proc.pid)
 						clearTimeout _timeout
 						return cb?(null, proc)

@@ -1,80 +1,46 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-ROOT=`dirname $0`/..
-TEST_NAME=`basename $0 | sed s/\.sh//`
-JSON_FILE=/tmp/${TEST_NAME}.json
-COFFEE_FILE=/tmp/${TEST_NAME}.coffee
-PID_FILE=/tmp/${TEST_NAME}.pid
-LOG_FILE=/tmp/${TEST_NAME}.log
-echo > $LOG_FILE
+PATH=$PATH:./node_modules/.bin
+TEST_PATH=`mktemp -d`
+START_PATH=`pwd`
 
-VERBOSE=false
-if [ "$1" == "verbose" ]; then
-	VERBOSE=true
-fi
+# echo TEST_PATH $TEST_PATH
 
-function log {
-	if $VERBOSE; then echo $1; fi
-	echo TEST: $1 >> $LOG_FILE
+function mkdeploy() {
+	rm -rf "$TEST_PATH/node_modules" "$TEST_PATH/.shepherd" "$TEST_PATH/*.js"
+	mkdir "$TEST_PATH/node_modules" \
+		&& mkdir "$TEST_PATH/node_modules/.bin" \
+		&& ln -sf "$START_PATH" "$TEST_PATH/node_modules/the-shepherd" \
+		&& ln -sf ../the-shepherd/bin/shep "$TEST_PATH/node_modules/.bin/shep" \
+		&& echo "$TEST_PATH" \
+		|| (echo "failed to mkdeploy"; exit 1)
+	return 0
 }
 
-function assert_notequal {
-	local a=$1
-	local b=$2
-	if [ "$a" != "$b" ]; then
-		echo "PASS"
-	else
-		echo "FAIL: '$b' should != '$a'"
-	fi
+function describe() {
+	echo $*
+}
+function it() {
+	echo -n " * $* -"
+}
+function check() {
+	$* && printf " \u2713" || die " fail"
+}
+function pass() {
+	echo " Pass"
+	return 0
+}
+function setup() {
+	return 0
 }
 
-mkdir -p `dirname $LOG_FILE`
-touch $LOG_FILE
-
-function shepherd_start {
-	log "Launching shepherd..."
-	$ROOT/bin/shepherd -v -d -o $LOG_FILE -f $JSON_FILE -p $PID_FILE
-	sleep 6
-	return `cat $PID_FILE`
+function cleanup() {
+	killall node || true &> /dev/null
+	[ -d "$TEST_PATH" ] && /bin/rm -r "$TEST_PATH"
 }
+trap cleanup EXIT
+trap cleanup ERR
 
-function shepherd_stop {
-	log "Stopping shepherd..."
-	curl -u demo:demo http://127.0.0.1:9001/stop &> /dev/null
-	rm -f $PID_FILE $JSON_FILE $COFFEE_FILE
+function die() {
+	(echo "die: $*"; exit 1)
 }
-
-function kill_owner {
-	local port=$1
-	local pid=`lsof -Pni :${port} | grep :${port} | awk '{print $2}'`
-	if [ -n "${pid}" ]; then
-		log "Killing $pid (to clear port $port)"
-		kill -9 ${pid}
-	fi
-}
-
-function get_owners {
-	local port=$1
-	echo `lsof -Pni :${port} | grep :${port} | awk '{print $2}'`
-}
-
-function check_output {
-	local port=$1
-	local owner=$(get_owners $port)
-	local expected="{\"PORT\": $port, \"PID\": \"$owner\"}"
-	local output=`curl -s http://127.0.0.1:$port/`
-	if [ "$output" != "$expected" ]; then
-		echo "Unexpected output: '" $output "' expected: '" $expected "'"
-		shepherd_stop
-		exit 1
-	else
-		echo "PASS"
-	fi
-}
-
-if [ "$0" == "./common.sh" ]; then
-	port=$1
-	echo Testing common.sh...
-	owner=$(get_owners $port)
-	echo $owner
-fi

@@ -1,11 +1,10 @@
 #!/usr/bin/env coffee
 
 $ = require 'bling'
-echo = $.logger '[shepherd]'
-Files = require '../files'
+Fs = require 'fs'
+{ exists, socketFile, configFile, createBasePath } = require '../files'
 Daemon = require '../daemon'
-{ parseArgv } = require '../util/parse-args'
-cmd = process.cmdv ?= parseArgv()
+{ cmd, echo, warn, verbose } = require '../common'
 _cmd = cmd._[0]
 
 if cmd.help or cmd.h
@@ -17,35 +16,28 @@ exit_soon = (code=0, ms=100) =>
 
 doInit = (cb) ->
 	defaultsFile = process.cwd() + "/.shepherd/defaults"
-	echo "Checking for defaults file:", defaultsFile
-	if Files.exists(configFile) and not (cmd.f or cmd.force)
-		echo "Configuration already exists (#{Files.configFile})"
+	verbose "Checking for defaults file:", defaultsFile
+	if exists(configFile) and not (cmd.f or cmd.force)
+		echo "Configuration already exists (#{configFile})"
 		cb?()
-	else if Files.exists(defaultsFile)
+	else if exists(defaultsFile)
 		echo "Applying default config..."
-		Fs.copyFile defaultsFile, Files.configFile, cb
+		Fs.copyFile defaultsFile, configFile, cb
 	else
-		echo "Creating base path shepherd here..."
-		Files.createBasePath ".", cb
+		createBasePath ".", cb
 	null
 
-switch _cmd # some commands get handled locally, without connecting to the daemon
+switch _cmd # some commands get handled without connecting to the daemon
 	when 'init' then return doInit exit_soon
-	when 'up'
-		echo "Starting daemon..."
-		return Daemon.doStart(true)
-	when 'down'
-		echo "Stopping daemon..."
-		return Daemon.doStop(true)
+	when 'up' then return Daemon.doStart(true)
+	when 'down' then return Daemon.doStop(true)
 
 { Actions } = require '../actions'
 unless action = Actions[_cmd]
-	echo "No such action:", _cmd
-	return
+	return warn "No such action:", _cmd
 
 Net = require 'net'
 Tnet = require '../util/tnet'
-{ socketFile } = require '../files'
 
 on_error = (err) ->
 	echo "socket error", $.debugStack err
@@ -61,6 +53,8 @@ do retryConnect = ->
 			else
 				echo "Daemon not running."
 				exit_soon 1
+		else if err.code is 'EADDRNOTAVAIL'
+			echo "Daemon socket does not exist:", socketFile
 		else on_error err
 
 	socket.on 'connect', ->
@@ -74,7 +68,7 @@ do retryConnect = ->
 			action.onConnect?(socket)
 			if 'onResponse' of action
 				timeout = $.delay 1000, ->
-					echo "Timed-out waiting for a response from the daemon."
+					warn "Timed-out waiting for a response from the daemon."
 					socket.end()
 				Tnet.read_stream socket, (item) ->
 					timeout.cancel()

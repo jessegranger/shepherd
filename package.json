@@ -10,8 +10,8 @@
 		"test": "make test",
 		"prepare": "make"
 	},
-	"author": "Jesse Dailey <jesse.dailey@gmail.com>",
-	"repository": "https://github.com/jldailey/shepherd.git",
+	"author": "Jesse Granger <jesse_granger@fastmail.com>",
+	"repository": "https://github.com/jessegranger/shepherd.git",
 	"dependencies": {
 		"bling": "latest",
 		"chalk": "latest",

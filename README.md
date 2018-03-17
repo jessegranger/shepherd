@@ -36,7 +36,7 @@ Commands:
 Files
 -----
 
-`shep` reads and writes state from a `.shepherd` directory. You can specify this directory using `SHEPHERD_PATH` in the environment, or using the `--path` argument to any command.  If unspecified, `shep` will search for a `.shepherd` directory using the same rule Git uses to search for a `.git` folder: Start in the working directory, and check each parent until you find one. `shep init` is the only command that skips this search (without `--path` or `SHEPHERD_PATH`).
+`shep` reads and writes state from a `.shepherd` directory. You can specify this directory using `SHEPHERD_PATH` in the environment, or using the `--path` argument to any command.  If unspecified, `shep` will search for a `.shepherd` directory using the same rule Git uses to search for a `.git` folder: Start in the working directory, and check each parent until you find one. `shep init` is the only command that skips this search.
 
 Files inside the `.shepherd` directory:
 

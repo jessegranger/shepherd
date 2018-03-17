@@ -35,11 +35,10 @@ handleMessage = (msg, client, cb) ->
 exists = (path) -> try (stat = Fs.statSync path).isFile() or stat.isSocket() catch then false
 
 doStop = (exit) ->
-	echo "Stopping daemon..."
 	if pid = readPid()
 		Actions.stop.onMessage({}) # send a stop command to all running instances
 		# give them a little time to exit gracefully
-		echo "Killing daemon pid: #{pid}..."
+		echo "Stopping daemon..."
 		# then kill the pid from the pid file (our own?)
 		result = Shell.exec "kill #{pid}", { silent: true, async: false } # use Shell.exec for easier stderr peek after
 		if result.stderr.indexOf("No such process") > -1

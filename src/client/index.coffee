@@ -1,11 +1,9 @@
 #!/usr/bin/env coffee
 
-$ = require 'bling'
+{ $, cmd, echo, warn, verbose } = require '../common'
 Fs = require 'fs'
 { exists, socketFile, configFile, createBasePath } = require '../files'
 Daemon = require '../daemon'
-{ cmd, echo, warn, verbose } = require '../common'
-_cmd = cmd._[0]
 
 if cmd.help or cmd.h
 	console.log "shepherd <start|stop|restart|status|add|remove|enable|disable>"
@@ -27,51 +25,52 @@ doInit = (cb) ->
 		createBasePath ".", cb
 	null
 
-switch _cmd # some commands get handled without connecting to the daemon
+doServerCommand = (_cmd) =>
+	{ Actions } = require '../actions'
+	unless action = Actions[_cmd]
+		return warn "No such action:", _cmd
+
+	Net = require 'net'
+	Tnet = require '../util/tnet'
+
+	on_error = (err) ->
+		warn "socket error", $.debugStack err
+
+	do retryConnect = ->
+		connectStart = Date.now()
+		socket = Net.connect path: socketFile
+		socket.on 'error', (err) -> # probably daemon is not running, should start it
+			if err.code is 'ENOENT'
+				if _cmd is 'start'
+					Daemon.doStart(false)
+					setTimeout retryConnect, 3000
+				else
+					echo "Daemon not running."
+					exit_soon 1
+			else if err.code is 'EADDRNOTAVAIL'
+				echo "Daemon socket does not exist:", socketFile
+			else on_error err
+
+		socket.on 'connect', ->
+			socket._connectLatency = Date.now() - connectStart
+			try
+				msg = action.toMessage cmd
+				bytes = $.TNET.stringify msg
+			catch err then return on_error err
+			socket.write bytes, ->
+				# some commands wait for a response
+				action.onConnect?(socket)
+				if 'onResponse' of action
+					timeout = $.delay 1000, ->
+						warn "Timed-out waiting for a response from the daemon."
+						socket.end()
+					Tnet.read_stream socket, (item) ->
+						timeout.cancel()
+						action.onResponse item, socket
+				else socket.end()
+
+switch cmd._[0] # some commands get handled without connecting to the daemon
 	when 'init' then return doInit exit_soon
-	when 'up' then return Daemon.doStart(true)
+	when 'up' then Daemon.doStart(false); $.delay 1000, => doServerCommand 'status'
 	when 'down' then return Daemon.doStop(true)
-
-{ Actions } = require '../actions'
-unless action = Actions[_cmd]
-	return warn "No such action:", _cmd
-
-Net = require 'net'
-Tnet = require '../util/tnet'
-
-on_error = (err) ->
-	echo "socket error", $.debugStack err
-
-do retryConnect = ->
-	connectStart = Date.now()
-	socket = Net.connect path: socketFile
-	socket.on 'error', (err) -> # probably daemon is not running, should start it
-		if err.code is 'ENOENT'
-			if _cmd is 'start'
-				Daemon.doStart(false)
-				setTimeout retryConnect, 3000
-			else
-				echo "Daemon not running."
-				exit_soon 1
-		else if err.code is 'EADDRNOTAVAIL'
-			echo "Daemon socket does not exist:", socketFile
-		else on_error err
-
-	socket.on 'connect', ->
-		socket._connectLatency = Date.now() - connectStart
-		try
-			msg = action.toMessage cmd
-			bytes = $.TNET.stringify msg
-		catch err then return on_error err
-		socket.write bytes, ->
-			# some commands wait for a response
-			action.onConnect?(socket)
-			if 'onResponse' of action
-				timeout = $.delay 1000, ->
-					warn "Timed-out waiting for a response from the daemon."
-					socket.end()
-				Tnet.read_stream socket, (item) ->
-					timeout.cancel()
-					action.onResponse item, socket
-			else socket.end()
-
+	else doServerCommand cmd._[0]

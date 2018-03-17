@@ -45,10 +45,11 @@ function check_up() {
 	check [ ! -e "$TEMP_PATH/.shepherd/log" ]
 	shep up | grep -q "Starting"
 	check [ "$?" -eq 0 ]
-	sleep 1
+	sleep .5
 	check [ -e "$TEMP_PATH/.shepherd/socket" ]
 	check [ -e "$TEMP_PATH/.shepherd/pid" ]
 	check [ -e "$TEMP_PATH/.shepherd/log" ]
+	# shep log --tail &
 	printf ' )'
 }
 function check_down() {

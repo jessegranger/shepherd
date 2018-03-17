@@ -59,3 +59,7 @@ toConfig = =>
 getOutputFile = => return outputFile and outputFile.substring(0)
 
 Object.assign module.exports, { getOutputFile, setOutput, toConfig, stream: outputStream }
+
+process.stdout.on 'error', (err) ->
+	if err.code is "EPIPE"
+		process.exit(2)

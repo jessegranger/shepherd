@@ -33,9 +33,10 @@ Commands:
 	nginx - Configure the nginx integration.
 	log - Control the log output.
 
-Files:
+Files
+-----
 
-`shep` will search for a `.shepherd` directory using the same rule Git uses to search for a `.git` folder: Start in the working directory, and keep checking each parent until you find one.
+`shep` reads and writes state from a `.shepherd` directory. You can specify this directory using `SHEPHERD_PATH` in the environment, or using the `--path` argument to any command.  If unspecified, `shep` will search for a `.shepherd` directory using the same rule Git uses to search for a `.git` folder: Start in the working directory, and check each parent until you find one. `shep init` is the only command that skips this search (without `--path` or `SHEPHERD_PATH`).
 
 Files inside the `.shepherd` directory:
 
@@ -46,8 +47,9 @@ Files inside the `.shepherd` directory:
 	log - The (default) location to log output from all managed processes.
 	nginx - The (default) location to keep an up-to-date set of nginx upstreams.
 
-* `shep init`
 
+`shep init`
+-----------
 
 `init` ensures that a `.shepherd` folder exists in the working directory.
 

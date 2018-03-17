@@ -9,7 +9,7 @@ lib/%.js: src/%.coffee
 		coffee -o $$o -c $<)
 
 test: all
-	./test/all.sh
+	@./test/all.sh
 
 clean:
 	rm -rf lib/*

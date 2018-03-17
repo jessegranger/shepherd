@@ -120,7 +120,7 @@ module.exports.Actions = Actions = {
 		toMessage: (cmd) -> { c: 'status' }
 		onResponse: (resp, socket) ->
 
-			console.log "Status: online (connect: #{socket._connectLatency}ms, compute: #{resp.send - resp.start} ms, transfer: #{Date.now() - resp.send} ms)"
+			console.log "Status: online, pid: #{resp.pid} net: (#{socket._connectLatency}ms,#{resp.send - resp.start} ms, #{Date.now() - resp.send} ms)"
 			console.log "Groups: #{resp.groups.length}"
 
 			pad_columns = (a,w=[19, 7, 7, 10, 8, 8, 14, 7, 7]) ->
@@ -145,6 +145,7 @@ module.exports.Actions = Actions = {
 		onMessage: (msg, client, cb) ->
 			output = {
 				start: Date.now()
+				pid: process.pid
 				groups: []
 			}
 			SlimProcess.getProcessTable (err, procs) => # force the cache to be fresh

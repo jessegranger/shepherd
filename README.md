@@ -48,22 +48,48 @@ Files inside the `.shepherd` directory:
 	nginx - The (default) location to keep an up-to-date set of nginx upstreams.
 
 
-`shep init`
+`> shep init`
 -----------
 
 `init` ensures that a `.shepherd` folder exists in the working directory.
 
 If a `.shepherd` folder already exists, and has a `defaults` file, but no `config` file, it will copy `defaults` to `config`.
 
-`shep up`
+`> shep up`
 ---------
 
 `up` ensures that a daemon has been spawned to manage the current `.shepherd` directory.
 
-If `.shepherd/config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
+If `config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
 
 	add --group echo --cd test/echo --exec "node echo_server.js" --count 4 --port 9001
 	start
 
-When the daemon starts, it will create `.shepherd/socket` and `.shepherd/pid`, and possibly others.
+When the daemon starts, it will create `socket` and `pid`, and possibly others.
+
+`> shep down`
+---------
+
+`down` stops the current daemon, and all processes it was managing.
+
+`> shep add`
+----------
+
+`add` will add a group, it accepts a standard set of options for
+specifying a group:
+
+	--group <name>
+	--cd <path> - The working directory for new processes in this group.
+	--exec <command> - The shell command to launch the process.
+	--count <n>
+	--port <port> - The starting port. If <n> > 0, then <port> gets incremented.
+	--grace <ms> - How long to allow the process to startup.
+
+`> shep remove`
+-------------
+
+`remove` will (stop and) remove a current process group.
+
+	--group <name>
+
 

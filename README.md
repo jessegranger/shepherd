@@ -20,18 +20,20 @@ Global options:
 
 Commands:
 
-	init - Create a `.shepherd` folder here.
-	up - Ensure the manager daemon is running.
-	down - Stop the daemon.
-	add - Add a process group to be managed by the daemon.
-	remove - Remove a process group.
-	replace - Replace a process group with new settings.
-	start - Start processes (autostarts the daemon).
-	stop - Stop processes.
-	restart - Restart processes.
-	scale - Scale a process group to a new size.
-	nginx - Configure the nginx integration.
-	log - Control the log output.
+| Command |                                                  |
+| ------- | -                                                |
+| init    | Create a `.shepherd` folder here.                |
+| up      | Ensure the manager daemon is running.            |
+| down    | Stop the daemon.                                 |
+| add     | Add a process group to be managed by the daemon. |
+| remove  | Remove a process group.                          |
+| replace | Replace a process group with new settings.       |
+| start   | Start processes (autostarts the daemon).         |
+| stop    | Stop processes.                                  |
+| restart | Restart processes.                               |
+| scale   | Scale a process group to a new size.             |
+| nginx   | Configure the nginx integration.                 |
+| log     | Control the log output.                          |
 
 Files
 -----

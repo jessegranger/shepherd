@@ -47,6 +47,7 @@ Files inside the `.shepherd` directory:
 	log - The (default) location to log output from all managed processes.
 	nginx - The (default) location to keep an up-to-date set of nginx upstreams.
 
+When reading the `config` file, any occurrence of "%" will be replaced with the full path to the `.shepherd` directory.
 
 `> shep init`
 -----------
@@ -62,7 +63,9 @@ If a `.shepherd` folder already exists, and has a `defaults` file, but no `confi
 
 If `config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
 
+	log --file "%/log"	
 	add --group echo --cd test/echo --exec "node echo_server.js" --count 4 --port 9001
+	nginx --disable
 	start
 
 When the daemon starts, it will create `socket` and `pid`, and possibly others.

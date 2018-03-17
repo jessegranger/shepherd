@@ -148,3 +148,35 @@ If no options are given, everything will be stopped.
 If no options are given, everything will be started.
 
 Processes will be restarted serially within a group, but multiple groups will restart in parallel.
+
+`> shep log`
+
+`log` controls the combined output of all managed processes.
+
+	--file <path> - eg, the default is "%/log".
+	--disable - Don't write any log file to disk.
+	--tail - Stream the log output. Works even when log file is disabled.
+
+When using `--tail`, it will keep the process open until you hit `Ctrl-C`, and behaves like `tail -f api.log`.
+The difference is that it streams from inside the daemon, through the `socket` file, and to the `shep` client (no file needed).
+
+`> shep nginx`
+------------
+`nginx` controls the built-in nginx integration.
+
+	--file <path> - Where to keep an up-to-date set of upstreams.
+	--keepalive <n> - How many connections should nginx keep-alive to each pool.
+	--reload <command> - How to notify nginx to reload an updated config.
+	--disable - Don't write any nginx configuration (default).
+
+The generated upstreams file might look like this:
+
+	upstream group_name {
+		server 127.0.0.1:9001 weight=0 down; # disabled
+		server 127.0.0.1:9002 weight=1; # started
+		server 127.0.0.1:9002 weight=1 down; # enabled, but not started
+		
+		keepalive 32;
+	}
+
+This file is re-generated, and nginx is notified to (gently) check for configuration changes as process statuses change.

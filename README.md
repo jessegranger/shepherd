@@ -16,7 +16,7 @@ Global options:
 	--quiet or -q
 	--verbose or -v
 	--force or -f
-	--path <base-path> - Force use of `<base-path>/.shepherd` instead of searching.
+	--path <base-path> - Use `<base-path>/.shepherd` instead of searching.
 
 Commands:
 
@@ -35,5 +35,20 @@ Commands:
 
 Files:
 
-The `shep` command will search for a `.shepherd` folder using the same rule Git uses to search for a `.git` folder: Start in the working directory, and keep checking each parent until you find one.
+`shep` will search for a `.shepherd` directory using the same rule Git uses to search for a `.git` folder: Start in the working directory, and keep checking each parent until you find one.
 
+Files inside the `.shepherd` directory:
+
+	config - A list of commands to execute at daemon startup.
+	defaults - Will be copied to config by 'shep init'.
+	socket - A unix socket used by the daemon to listen for commands.
+	pid - Contains the pid of any currently running daemon.
+	log - The (default) location to log output from all managed processes.
+	nginx - The (default) location to keep an up-to-date set of nginx upstreams.
+
+* `shep init`
+
+
+`init` ensures that a `.shepherd` folder exists in the working directory.
+
+If a `.shepherd` folder already exists, and has a `defaults` file, but no `config` file, it will copy `defaults` to `config`.

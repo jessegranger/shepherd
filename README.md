@@ -41,7 +41,7 @@ Files
 Files inside the `.shepherd` directory:
 
 	config - A list of commands to execute at daemon startup.
-	defaults - Will be copied to config by 'shep init'.
+	defaults - Will be copied to config by 'shep init'. This file should be in source control.
 	socket - A unix socket used by the daemon to listen for commands.
 	pid - Contains the pid of any currently running daemon.
 	log - The (default) location to log output from all managed processes.

@@ -39,18 +39,11 @@ function check_init() {
 	check [ "$?" -eq 0 ]
 }
 function check_up() {
-	printf ' up('
-	check [ ! -e "$TEMP_PATH/.shepherd/socket" ]
-	check [ ! -e "$TEMP_PATH/.shepherd/pid" ]
-	check [ ! -e "$TEMP_PATH/.shepherd/log" ]
+	# printf ' up('
 	shep up | grep -q "Starting"
-	check [ "$?" -eq 0 ]
-	sleep .5
-	check [ -e "$TEMP_PATH/.shepherd/socket" ]
-	check [ -e "$TEMP_PATH/.shepherd/pid" ]
-	check [ -e "$TEMP_PATH/.shepherd/log" ]
+	check [ "$?" -eq 0 -a -e "$TEMP_PATH/.shepherd/socket" -a -e "$TEMP_PATH/.shepherd/pid" -a -e "$TEMP_PATH/.shepherd/log" ]
 	# shep log --tail &
-	printf ' )'
+	# printf ' )'
 }
 function check_down() {
 	shep down | grep -q "Stopping"
@@ -81,6 +74,8 @@ s.on('error', (err) => { console.error(err); process.exit(1) });
 s.on('connection', (client) => { client.on('data', (msg) => { client.write(process.argv[2] + " " + String(data)) }) });
 EOF
 )
+
+crash_server="throw new Error('tis but a scratch')"
 
 simple_worker=$(cat <<EOF
 setInterval(()=>{ console.log("Working..."); }, 3000)

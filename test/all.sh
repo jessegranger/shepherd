@@ -108,3 +108,107 @@ it 'should list - started'
 	check [ "$?" -eq 0 ]
 	check_down
 	pass
+
+describe 'stop'
+it 'should stop - everything'
+	cd $(mkdeploy)
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	check_up
+	check_process "echo_server.js $$"
+	shep stop | grep -q "Stopping everything"
+	check [ "$?" -eq 0 ]
+	check_down
+	pass
+
+it 'should stop - groups'
+	cd $(mkdeploy)
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
+	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	check_up
+	check_process "echo_server.js A $$"
+	check_process "echo_server.js B $$"
+	shep stop --group testA | grep -q "Stopping group testA"
+	check [ "$?" -eq 0 ]
+	check_no_process "echo_server.js A $$"
+	check_process "echo_server.js B $$"
+	shep stop --group testB | grep -q "Stopping group testB"
+	check [ "$?" -eq 0 ]
+	check_no_process "echo_server.js A $$"
+	check_no_process "echo_server.js B $$"
+	check_down
+	pass
+
+it 'should stop - instances'
+	cd $(mkdeploy)
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "add --group test --exec 'node echo_server.js $$' --count 2 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	check_up
+	check_process "echo_server.js $$"
+	shep stop --instance test-1 | grep -q "Stopping instance test-1"
+	check [ "$?" -eq 0 ]
+	check_process "echo_server.js $$"
+	shep stop --instance test-0 | grep -q "Stopping instance test-0"
+	check [ "$?" -eq 0 ]
+	check_no_process "echo_server.js $$"
+	check_down
+	pass
+
+describe 'start'
+it 'should start - everything'
+	cd $(mkdeploy)
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
+	check_up
+	shep start | grep -q "Starting everything"
+	check [ "$?" -eq 0 ]
+	sleep 1
+	check_process "echo_server.js A $$"
+	check_process "echo_server.js B $$"
+	check_down
+	pass
+
+it 'should start - groups'
+	cd $(mkdeploy)
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
+	check_up
+	shep start --group testA | grep -q "Starting group testA"
+	check [ "$?" -eq 0 ]
+	check_process "echo_server.js A $$"
+	check_no_process "echo_server.js B $$"
+	shep start --group testB | grep -q "Starting group testB"
+	check [ "$?" -eq 0 ]
+	check_process "echo_server.js A $$"
+	check_process "echo_server.js B $$"
+	check_down
+	pass
+
+it 'should start - instances'
+	cd $(mkdeploy)
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "add --group test --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	check_up
+	shep start --instance test-1 | grep -q "Starting instance test-1"
+	check [ "$?" -eq 0 ]
+	check_process "echo_server.js A $$"
+	shep stop --instance test-1 | grep -q "Stopping instance test-1"
+	check [ "$?" -eq 0 ]
+	check_no_process "echo_server.js A $$"
+	shep start --instance test-2 | grep -q "Starting instance test-2"
+	check [ "$?" -eq 0 ]
+	check_process "echo_server.js A $$"
+	check_down
+	pass

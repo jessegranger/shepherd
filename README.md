@@ -126,3 +126,13 @@ This command causes `config` to be re-written.
 If no options are given, everything will be started.
 
 If the daemon is not running, `up` will be called automatically.
+
+`> shep stop`
+-----------
+
+`stop` can stop specified group, or processes.
+
+	--group <name>
+	--instance <instance-id>
+
+If no options are given, everything will be stopped.

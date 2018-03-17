@@ -81,13 +81,13 @@ Where indicated below, many commands cause the currently running configuration t
 specifying a group:
 
 	--group <name>
-	--cd <path> - The working directory for new processes. Optional. Default ".".
+	--cd <path> - The working directory for new processes. Optional. Default "."
 	--exec <command> - The shell command to launch the process. Required.
-	--count <n> - Optional. Default 1.
-	--port <port> - The starting port. If `<n> > 0`, then <port> gets incremented. Optional.
-	--grace <ms> - How long to allow the process to startup. Optional. Default 9000.
+	--count <n> - Optional. Default 1
+	--port <port> - The starting port. If n > 0 then port will be incremented. Optional.
+	--grace <ms> - How long to allow the process to startup. Optional. Default 9000
 
-If `--port` is specified, each new process is given `PORT` in it's environment.  The process is `"started"` once it is listening on it's given `PORT`.
+If `--port` is specified, each new process is given `PORT` in it's environment.  The process is `"started"` once it is listening on it's given `PORT`.  Failure to listen on `PORT` within the `--grace` timeout will be fatal.
 
 If `--port` is not specified, then the process is `"started"` if it stays up for it's full `--grace` period.  Be careful if you use long `--grace` times, with no `--port`, and high `--count`; this combination will lead to a slow `start` for that group.
 

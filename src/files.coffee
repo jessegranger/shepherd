@@ -26,7 +26,7 @@ else
 		basePath = cmd.path + "/.shepherd"
 	else
 		basePath = seekForBasePath()
-dirExists(basePath) and $.log "Using", basePath
+dirExists(basePath) and verbose "Using", basePath
 
 createBasePath = (prefix, cb) =>
 	return ChildProcess.spawn("mkdir -p \"#{prefix}/.shepherd\"", { shell: true }).on 'exit', =>

@@ -43,7 +43,7 @@ doStop = (exit) ->
 		if result.stderr.indexOf("No such process") > -1
 			try Fs.unlinkSync(pidFile)
 			try Fs.unlinkSync(socketFile)
-	echo "Status: stopped."
+	echo "Status: offline."
 	if exit
 		return exit_soon 0
 
@@ -73,6 +73,8 @@ runDaemon = => # in the foreground
 				echo "Failed to open local socket:", $.debugStack err
 				return exit_soon 1
 			socket.on 'connection', (client) ->
+				client.on 'error', (err) ->
+					warn "client error:", err
 				client.on 'data', (msg) ->
 					start = Date.now()
 					msg = $.TNET.parse(msg.toString())

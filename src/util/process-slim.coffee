@@ -109,7 +109,7 @@ waitForPortOwner = (pid, port, timeout, cb) =>
 						return cb?(null, proc)
 			cb? and setTimeout checkAgain, 400
 
-getProcessTable = refresh_process_table_if_needed
+getProcessTable = refresh_process_table
 
 Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable }
 

@@ -46,10 +46,11 @@ doServerCommand = (_cmd, cb) =>
 					Daemon.doStart(false)
 					setTimeout retryConnect, 3000
 				else
-					echo "Daemon not running."
+					echo "Status: offline."
 					exit_soon 1
 			else if err.code is 'EADDRNOTAVAIL'
-				echo "Daemon socket does not exist:", socketFile
+				echo "Status: offline."
+				exit_soon 1
 			else on_error err
 
 		socket.on 'connect', ->

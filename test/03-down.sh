@@ -4,7 +4,7 @@ describe 'down'
 it 'should do nothing if already stopped'
 	cd $(mkdeploy)
 	check_init
-	shep down | grep -q "not running"
+	shep down | grep -q "Status: offline"
 	check [ "$?" -eq 0 ]
 	pass
 

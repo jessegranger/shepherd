@@ -15,18 +15,8 @@ function exit_soon(code, ms) {
 	})
 })
 
-function crashMode() {
-	console.log("Crashing due to CRASH MODE!");
+if( process.argv.indexOf("--crash") > -1 ) {
 	exit_soon(1);
-}
-
-if( $(process.argv).contains('--crash') ) {
-	var crashCount = 10, crashFile = '/tmp/crash-file'; // TODO: use mktemp
-	try { crashCount = parseInt(String(Fs.readFileSync(crashFile)), 10); } catch(err) { }
-	crashCount = Math.max(0, crashCount - 1)
-	if( crashCount == 0 ) crashCount = 10;
-	Fs.writeFileSync(crashFile, String(crashCount));
-	if( crashCount < 10 ) crashMode();
 }
 
 requestCount = 0
@@ -53,7 +43,7 @@ $.delay(500, function() { // add an artificial startup delay
 					case 1:
 					case 2: // fall through
 					case 3: finish("IM OK"); break;
-					case 4: $.random.element([function(){fail("NOT OK")}, function(){ console.log("TIMING OUT") }])()
+					case 4: $.random.element([()=>{fail("NOT OK")}, ()=>{ console.log("TIMING OUT") }])()
 				}
 				break;
 			default:

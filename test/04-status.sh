@@ -3,7 +3,7 @@ describe 'status'
 it 'should do nothing if daemon is stopped'
 	cd $(mkdeploy)
 	check_init
-	shep status | grep -q "not running"
+	shep status | grep -q "Status: offline"
 	check [ "$?" -eq 0 ]
 	pass
 

@@ -107,11 +107,11 @@ class Proc
 
 	# Start this process if it isn't already.
 	start: (cb) -> # cb called with a 'started' flag that indicates if any work was done
-		@expected = true
 		done = (ret) => cb?(ret); ret
 		if @started or not @enabled
 			echo "Not starting because", @started, @enabled
 			return done(false)
+		@expected = true
 		env = Object.assign {}, process.env, { PORT: @port }
 		clearPort = (cb) =>
 			unless @expected and @enabled

@@ -60,12 +60,10 @@ runDaemon = => # in the foreground
 		return die "Daemon does not have a base path."
 
 	if exists(pidFile)
-		echo "Already running as PID:", readPid()
-		return exit_soon 1
+		return die "Already running as PID:" + readPid()
 
 	if exists(socketFile)
-		echo "Socket file still exists:", socketFile
-		return exit_soon 1
+		return die "Socket file still exists:" + socketFile
 
 	Fs.writeFile pidFile, process.pid, (err) =>
 		if err then return die "Failed to write pid file:", err

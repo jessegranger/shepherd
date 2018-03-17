@@ -2,56 +2,38 @@
 The Shepherd
 --------
 
+Manage groups of processes.
+
 Install:
 `npm install the-shepherd`
 
 
 Usage:
-`shepherd [options]`
+`shep <command> [options]`
 
-    -h, --help     output usage information
-    -V, --version  output the version number
-    -f [file]      The herd file to load
-    -o [file]      Where to send log output.
-    Note: output to a tty is synchronous (blocking).
-    --example      Output a complete herd file with all defaults
-    --daemon       Run in the background.
-    -v, --verbose  Verbose mode.
-    -p [file]      The .pid file to use.
+Global options:
 
-Sample herd file (parsed as Human JSON):
+    --quiet or -q
+		--verbose or -v
+		--force or -f
+		--path <base-path> - Force use of `<base-path>/.shepherd` instead of searching.
 
-    {
-      admin: {port: 9000 }
-      servers: [
-        { cd: "."
-          command: "node index.js"
-          count: 3
-          port: 8000
-          portVariable: "PORT"
-          env: {}
-        }
-      ],
-      workers: [
-        { cd: "workers",
-          command: "node worker.js"
-          count: 2
-        }
-      ],
-      restart: {
-        maxAttempts: 5
-        maxInterval: 10000
-        gracePeriod: 3000
-        timeout: 10000
-      },
-      rabbitmq: {
-        enabled: true
-        url: "amqp://guest:guest@localhost:5672"
-        channel: "shepherd"
-      },
-      nginx: {
-        enabled: true
-        config: "/usr/local/etc/nginx/conf.d/shepherd_pool.conf"
-        reload: "launchctl stop homebrew.mxcl.nginx && launchctl start homebrew.mxcl.nginx"
-      }
-    }
+Commands:
+
+    init - Create a `.shepherd` folder here.
+    up - Ensure the manager daemon is running.
+		down - Stop the daemon.
+		start - Start processes (autostarts the daemon).
+		stop - Stop processes.
+		restart - Restart processes.
+		add - Add a process group to be managed by the daemon.
+		remove - Remove a process group.
+		replace - Replace a process group with new settings.
+		scale - Scale a process group to a new size.
+		nginx - Configure the nginx integration.
+		log - Control the log output.
+
+Files:
+
+The `shep` command will search for a `.shepherd` folder using the same rule Git uses to search for a `.git` folder: Start in the working directory, and keep checking each parent until you find one.
+

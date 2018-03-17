@@ -109,13 +109,18 @@ class Proc
 	start: (cb) -> # cb called with a 'started' flag that indicates if any work was done
 		@expected = true
 		done = (ret) => cb?(ret); ret
-		return done(false) if @started or not @enabled
+		if @started or not @enabled
+			echo "Not starting because", @started, @enabled
+			return done(false)
 		env = Object.assign {}, process.env, { PORT: @port }
 		clearPort = (cb) =>
+			unless @expected and @enabled
+				echo "Giving up on clearPort because", @expected, @enabled
+				return done(false) # stopped while waiting
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
 				invalidPort = =>
-					return cb @markAsInvalid "invalid port"
+					return done @markAsInvalid "invalid port"
 				if owner.uid isnt process.getuid()
 					return invalidPort()
 				SlimProcess.getProcessTable (err, procs) =>
@@ -126,7 +131,7 @@ class Proc
 						@statusString = "killing #{owner.pid}"
 						try process.kill owner.pid, 'SIGTERM'
 						setTimeout (=> clearPort cb), 1000
-			else cb()
+			else cb?()
 		retryStart = =>
 			return done(false) if @started or not @enabled
 			@cooldown = (Math.min 30000, @cooldown * 2)
@@ -134,14 +139,22 @@ class Proc
 			setTimeout doStart, @cooldown
 			return true
 		do doStart = =>
-			return done(false) if @started or not @enabled
+			if @started or not @expected
+				echo "Giving up on doStart because", @expected, @enabled
+				return done(false)
 			clearPort (err) =>
-				return done(false) if err
+				if err or not @expected
+					echo "Giving up after clearPort because", err, @expected
+					return done(false)
 				checkStarted = null
 				@statusString = "starting"
 				verbose "exec:", @exec, "as", @id
-				verbose "cd:",
-				@cd = Path.resolve(process.cwd(), @cd)
+				try
+					@cd = Path.resolve(process.cwd(), @cd)
+					verbose "cd:", @cd
+				catch err # it's actually possible for node's internals to throw an exception here if cwd() is weird
+					@markAsInvalid err.message
+					return done(false)
 				# echo "opts:",
 				opts = { shell: true, cwd: @cd, env: env }
 				if not dirExists(@cd)
@@ -157,19 +170,22 @@ class Proc
 						done(true)
 				if @port
 					_s = Date.now()
-					$.delay 50, =>
-						if not @proc?
-							return done(false)
-						if not @proc?.pid?
+					checkStarted = setTimeout (=>
+						return done(false) unless @proc? and @expected
+						unless @proc?.pid?
 							@statusString = "exec failed"
 							@started = @expected = @enabled = @healthy = false
 							return done(false)
 						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
 						SlimProcess.waitForPortOwner @proc.pid, @port, @group.grace, (err, owner) =>
+							unless @expected and @enabled # stopped while waiting?
+								echo "Giving up after waiting for port because", @expected, @enabled
+								return @stop => done(false)
 							if err?
-								echo "Failed to find port owner, err:", err, (Date.now() - _s)
+								echo "Failed to find port owner, err:", err, "after", (Date.now() - _s) + "ms"
 								return @stop retryStart
 							finishStarting()
+					), 50
 				else # if there is no port to wait for then staying up for a few seconds counts as started
 					checkStarted = setTimeout finishStarting, @grace
 				
@@ -211,23 +227,24 @@ class Proc
 		@stop => @start cb
 
 	enable: (cb) ->
-		acted = ! @enabled
+		acted = not @enabled
 		@enabled = true
 		@statusString = "enabled"
 		if acted then @start cb
-		else cb()
+		else cb?()
 		acted
 	
 	markAsInvalid: (reason) ->
 		@enabled = @expected = @started = @healthy = false
 		@statusString = reason
+		false
 
 	disable: (cb) ->
 		acted = @enabled
 		@enabled = false
 		if acted then @stop cb
 		@statusString = "disabled"
-		if not acted then cb()
+		if not acted then cb?()
 		acted
 
 actOnInstance = (method, instanceId, cb) ->
@@ -239,7 +256,7 @@ actOnInstance = (method, instanceId, cb) ->
 	index = parseInt index, 10
 	proc = Groups.get(groupId)?[index]
 	if (not proc) or not (method of proc)
-		return cb('invalid method')
+		return cb?('invalid method')
 	proc[method] (ret) =>
 		afterAction method, ret, cb
 	false
@@ -249,7 +266,7 @@ actOnGroup = (method, groupId, cb) ->
 	unless group?
 		return false
 	if (not group)
-		return cb('invalid group')
+		return cb?('invalid group')
 	if (method of group)
 		group[method] (ret) =>
 			afterAction method, ret, cb

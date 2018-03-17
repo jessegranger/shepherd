@@ -29,7 +29,7 @@ saveConfig = (cb) ->
 		else
 			for proc in group when not proc.enabled
 				buf += "disable --instance #{proc.id}\n"
-	buf += clean Nginx.config()
+	buf += clean Nginx.toConfig()
 	buf += "start\n"
 	Fs.writeFile configFile, buf, (err) ->
 		cb?(not err)

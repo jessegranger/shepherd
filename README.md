@@ -20,20 +20,21 @@ Global options:
 
 Commands:
 
-| Command |                                                  |
-| ------- | -                                                |
-| init    | Create a `.shepherd` folder here.                |
-| up      | Ensure the manager daemon is running.            |
-| down    | Stop the daemon.                                 |
-| add     | Add a process group to be managed by the daemon. |
-| remove  | Remove a process group.                          |
-| replace | Replace a process group with new settings.       |
-| start   | Start processes (autostarts the daemon).         |
-| stop    | Stop processes.                                  |
-| restart | Restart processes.                               |
-| scale   | Scale a process group to a new size.             |
-| nginx   | Configure the nginx integration.                 |
-| log     | Control the log output.                          |
+| Command |                                            | Example                                                   |
+| ------- | -                                          | -------                                                   |
+| init    | Create a `.shepherd` folder here.          | `shep init`                                               |
+| up      | Ensure the manager daemon is running.      | `shep up`                                                 |
+| down    | Stop the daemon.                           | `shep down`                                               |
+| add     | Add a process group.                       | `shep add --group echo --exec "node echo.js" --port 8081` |
+| remove  | Remove a process group.                    | `shep remove --group echo`                                |
+| replace | Replace a process group with new settings. | `shep replace --group echo --exec "node foo.js"`          |
+| start   | Start processes (autostarts the daemon).   | `shep start --instance echo-1`                            |
+| stop    | Stop processes.                            | `shep stop --group echo`                                  |
+| restart | Restart processes.                         | `shep restart --instance echo-1`                          |
+| status  | Report the current status.                 | `shep status --verbose`                                   |
+| scale   | Scale a process group to a new size.       | `shep scale --group echo --count 2`                       |
+| nginx   | Configure the nginx integration.           | `shep nginx --file '%/nginx'`                             |
+| log     | Control the log output.                    | `shep log --tail`                                         |
 
 Files
 -----

@@ -38,14 +38,12 @@ doStop = (exit) ->
 	if pid = readPid()
 		Actions.stop.onMessage({}) # send a stop command to all running instances
 		# give them a little time to exit gracefully
-		echo "Stopping daemon..."
 		# then kill the pid from the pid file (our own?)
 		result = Shell.exec "kill #{pid}", { silent: true, async: false } # use Shell.exec for easier stderr peek after
 		if result.stderr.indexOf("No such process") > -1
-			echo "Removing stale PID file and socket."
 			try Fs.unlinkSync(pidFile)
 			try Fs.unlinkSync(socketFile)
-	else echo "Daemon not running."
+	echo "Status: stopped."
 	if exit
 		return exit_soon 0
 
@@ -101,8 +99,11 @@ runDaemon = => # in the foreground
 
 doStart = (exit) => # launch the daemon in the background and exit
 	echo "Starting daemon..."
-	_cmd = process.argv.slice(0,2).join(' ').replace("client/index","daemon/index") + " daemon"
-	# start a new child with the "start" command-line
+	_cmd = process.argv.slice(0,2).join(' ')
+		.replace("client/index","daemon/index") +
+		" daemon" +
+		(if cmd.verbose then " --verbose" else "") +
+		(if cmd.quiet then " --quiet" else "")
 	devNull = Fs.openSync "/dev/null", 'a+'
 	stdio = [ devNull, devNull, process.stderr ] # only let stderr pass through
 	child = ChildProcess.spawn(_cmd, { detached: true, shell: true, stdio: stdio })

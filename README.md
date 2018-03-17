@@ -67,7 +67,7 @@ If `config` exists, each line will be read in as if it had been given as a comma
 
 When the daemon starts, it will create `socket` and `pid`, and possibly others.
 
-Where indicated below, many commands cause the currently running configuration to be written to the `config` file. This does not apply to initial commands read the daemon from the 'config' file.
+Where indicated below, many commands cause the currently running configuration to be written to the `config` file. This does not apply to commands read from the 'config' file.
 
 `> shep down`
 ---------

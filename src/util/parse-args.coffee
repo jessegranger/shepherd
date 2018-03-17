@@ -100,6 +100,7 @@ parseArgv = ->
 	ret = parseArguments argv
 	ret.quiet or= ret.q
 	ret.verbose or= ret.v
+	ret.force or= ret.f
 	ret
 
 

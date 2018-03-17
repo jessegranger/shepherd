@@ -54,3 +54,16 @@ Files inside the `.shepherd` directory:
 `init` ensures that a `.shepherd` folder exists in the working directory.
 
 If a `.shepherd` folder already exists, and has a `defaults` file, but no `config` file, it will copy `defaults` to `config`.
+
+`shep up`
+---------
+
+`up` ensures that a daemon has been spawned to manage the current `.shepherd` directory.
+
+If `.shepherd/config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
+
+	add --group echo --cd test/echo --exec "node echo_server.js" --count 4 --port 9001
+	start
+
+When the daemon starts, it will create `.shepherd/socket` and `.shepherd/pid`, and possibly others.
+

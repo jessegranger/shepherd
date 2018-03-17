@@ -25,7 +25,7 @@ doInit = (cb) ->
 		createBasePath ".", cb
 	null
 
-doServerCommand = (_cmd) =>
+doServerCommand = (_cmd, cb) =>
 	{ Actions } = require '../actions'
 	unless action = Actions[_cmd]
 		return warn "No such action:", _cmd
@@ -39,6 +39,7 @@ doServerCommand = (_cmd) =>
 	do retryConnect = ->
 		connectStart = Date.now()
 		socket = Net.connect path: socketFile
+		socket.on 'close', => cb?()
 		socket.on 'error', (err) -> # probably daemon is not running, should start it
 			if err.code is 'ENOENT'
 				if _cmd is 'start'
@@ -67,10 +68,19 @@ doServerCommand = (_cmd) =>
 					Tnet.read_stream socket, (item) ->
 						timeout.cancel()
 						action.onResponse item, socket
-				else socket.end()
+				else
+					socket.end()
+				null
+			null
+		null
+	null
 
 switch cmd._[0] # some commands get handled without connecting to the daemon
 	when 'init' then return doInit exit_soon
 	when 'up' then Daemon.doStart(false); $.delay 1000, => doServerCommand 'status'
 	when 'down' then return Daemon.doStop(true)
-	else doServerCommand cmd._[0]
+	else doServerCommand cmd._[0], =>
+		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale']
+			setTimeout (=>
+				doServerCommand 'status'
+			), 300

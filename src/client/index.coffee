@@ -80,7 +80,7 @@ switch cmd._[0] # some commands get handled without connecting to the daemon
 	when 'up' then Daemon.doStart(false); $.delay 1000, => doServerCommand 'status'
 	when 'down' then return Daemon.doStop(true)
 	else doServerCommand cmd._[0], =>
-		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale']
+		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale','replace']
 			setTimeout (=>
 				doServerCommand 'status'
 			), 300

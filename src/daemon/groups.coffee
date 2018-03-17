@@ -191,7 +191,7 @@ class Proc
 	stop: (cb) ->
 		@statusString = "stopping"
 		@expected = false
-		if @proc?.pid
+		if @proc?.pid > 1
 			@proc.on 'exit', =>
 				@started = false
 				@statusString = if @enabled then "stopped" else "disabled"
@@ -199,7 +199,7 @@ class Proc
 					Nginx.sync => cb? true
 				else
 					cb? true
-			process.kill @proc.pid
+			try process.kill @proc.pid
 			return true
 		@started = false
 		@statusString = if @enabled then "stopped" else "disabled"

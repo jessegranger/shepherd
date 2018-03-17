@@ -85,6 +85,8 @@ specifying a group:
 	--port <port> - The starting port. If <n> > 0, then <port> gets incremented.
 	--grace <ms> - How long to allow the process to startup.
 
+This command causes `config` to be re-written.
+
 `> shep remove`
 -------------
 
@@ -92,4 +94,22 @@ specifying a group:
 
 	--group <name>
 
+This command causes `config` to be re-written.
+
+`> shep replace`
+--------------
+
+`replace` will first `remove` then re-`add` a group, using the new options.  Uses the same options as `add`.
+
+This command causes `config` to be re-written.
+
+`> shep scale`
+------------
+
+`scale` will change just the `--count` option for a group, and will only effect current processes if the new `<n>` is smaller.
+
+	--group <name>
+	--count <n>
+
+This command causes `config` to be re-written.
 

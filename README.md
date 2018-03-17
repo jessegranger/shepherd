@@ -23,12 +23,12 @@ Commands:
 	init - Create a `.shepherd` folder here.
 	up - Ensure the manager daemon is running.
 	down - Stop the daemon.
-	start - Start processes (autostarts the daemon).
-	stop - Stop processes.
-	restart - Restart processes.
 	add - Add a process group to be managed by the daemon.
 	remove - Remove a process group.
 	replace - Replace a process group with new settings.
+	start - Start processes (autostarts the daemon).
+	stop - Stop processes.
+	restart - Restart processes.
 	scale - Scale a process group to a new size.
 	nginx - Configure the nginx integration.
 	log - Control the log output.
@@ -136,3 +136,15 @@ If the daemon is not running, `up` will be called automatically.
 	--instance <instance-id>
 
 If no options are given, everything will be stopped.
+
+`> shep restart`
+------------
+
+`restart` can start specified groups, or processes.
+
+	--group <name>
+	--instance <instance-id>
+
+If no options are given, everything will be started.
+
+Processes will be restarted serially within a group, but multiple groups will restart in parallel.

@@ -67,7 +67,7 @@ If `config` exists, each line will be read in as if it had been given as a comma
 
 When the daemon starts, it will create `socket` and `pid`, and possibly others.
 
-Where indicated below, many commands cause the currently running configuration to be written to the `config` file. This does not apply to commands read from the 'config' file.
+Where indicated below, many commands cause the currently running configuration to be written to the `config` file. This does not apply to commands read from the `config` file.
 
 `> shep down`
 ---------
@@ -81,11 +81,15 @@ Where indicated below, many commands cause the currently running configuration t
 specifying a group:
 
 	--group <name>
-	--cd <path> - The working directory for new processes in this group.
-	--exec <command> - The shell command to launch the process.
-	--count <n>
-	--port <port> - The starting port. If <n> > 0, then <port> gets incremented.
-	--grace <ms> - How long to allow the process to startup.
+	--cd <path> - The working directory for new processes. Optional. Default ".".
+	--exec <command> - The shell command to launch the process. Required.
+	--count <n> - Optional. Default 1.
+	--port <port> - The starting port. If `<n> > 0`, then <port> gets incremented. Optional.
+	--grace <ms> - How long to allow the process to startup. Optional. Default 9000.
+
+If `--port` is specified, each new process is given `PORT` in it's environment.  The process is `"started"` once it is listening on it's given `PORT`.
+
+If `--port` is not specified, then the process is `"started"` if it stays up for it's full `--grace` period.  Be careful if you use long `--grace` times, with no `--port`, and high `--count`; this combination will lead to a slow `start` for that group.
 
 This command causes `config` to be re-written.
 

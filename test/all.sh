@@ -240,7 +240,7 @@ if it "$*" 'should keep instance up if it dies'; then
 	sleep 2
 	shep status | grep "test-1" | grep -q " started"
 	check [ "$?" -eq 0 ]
-	shep status | grep "test-1" | grep -q " [1-2]s"
+	shep status | grep "test-1" | grep -q " [0-2]s"
 	check [ "$?" -eq 0 ]
 	check_down
 	pass
@@ -257,11 +257,12 @@ if it "$*" 'should handle an instant crashing process'; then
 	shep start --instance crash-0 | grep -q "Starting instance crash-0"
 	check [ "$?" -eq 0 ]
 	sleep 1
-	shep status | grep "crash-0" | grep -q " waiting"
+	shep status | grep "crash-0" | grep -q " waiting 400"
 	check [ "$?" -eq 0 ]
 	shep start --instance echo-0 | grep -q "Starting instance echo-0"
 	check [ "$?" -eq 0 ]
-	shep status | grep "crash-0" | grep " waiting"
+	sleep 1
+	shep status | grep "crash-0" | grep -q " waiting 400"
 	check [ "$?" -eq 0 ]
 	shep status | grep "echo-0" | grep -q " started"
 	check [ "$?" -eq 0 ]

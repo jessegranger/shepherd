@@ -5,14 +5,15 @@ ROOT=$(pwd)/test
 source $ROOT/common.sh
 
 describe "init"
-it "should create a .shepherd folder"
+if it "$*" "should create a .shepherd folder"; then
 	cd $(mkdeploy)
 	check [ "$?" -eq 0 ]
 	shep init > /dev/null
 	check [ -d "$TEMP_PATH/.shepherd" ]
 	pass
+fi
 
-it "should copy a .shepherd/defaults file"
+if it "$*" "should copy a .shepherd/defaults file"; then
 	cd $(mkdeploy)
 	check [ -n "$TEMP_PATH" -a -d "$TEMP_PATH" ]
 	mkdir -p "$TEMP_PATH/.shepherd/"
@@ -20,17 +21,18 @@ it "should copy a .shepherd/defaults file"
 	shep init > /dev/null
 	check [ `cat "$TEMP_PATH/.shepherd/config"` = "xyzzy" ]
 	pass
-
+fi
 
 describe 'up'
-it 'should start the daemon'
+if it "$*" 'should start the daemon'; then
 	cd $(mkdeploy)
 	check_init
 	check_up
 	check_down
 	pass
+fi
 
-it 'can add and start from the config'
+if it "$*" 'can add and start from the config'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -40,16 +42,18 @@ it 'can add and start from the config'
 	check_process "echo_server.js $$"
 	check_down
 	pass
+fi
 
 describe 'down'
-it 'should do nothing if already stopped'
+if it "$*" 'should do nothing if already stopped'; then
 	cd $(mkdeploy)
 	check_init
 	shep down | grep -q "Status: offline"
 	check [ "$?" -eq 0 ]
 	pass
+fi
 
-it 'should stop a started daemon'
+if it "$*" 'should stop a started daemon'; then
 	cd $(mkdeploy)
 	check_init
 	check_up
@@ -58,16 +62,18 @@ it 'should stop a started daemon'
 	shep status | grep -q "Status: offline"
 	check [ "$?" -eq 0 ]
 	pass
+fi
 
 describe 'status'
-it 'should do nothing if daemon is stopped'
+if it "$*" 'should do nothing if daemon is stopped'; then
 	cd $(mkdeploy)
 	check_init
 	shep status | grep -q "Status: offline"
 	check [ "$?" -eq 0 ]
 	pass
+fi
 
-it 'should list - unstarted'
+if it "$*" 'should list - unstarted'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -85,8 +91,9 @@ it 'should list - unstarted'
 	check [ "$?" -eq 0 ]
 	check_down
 	pass
+fi
 
-it 'should list - started'
+if it "$*" 'should list - started'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -106,9 +113,10 @@ it 'should list - started'
 	check [ "$?" -eq 0 ]
 	check_down
 	pass
+fi
 
 describe 'stop'
-it 'should stop - everything'
+if it "$*" 'should stop - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -120,8 +128,9 @@ it 'should stop - everything'
 	check [ "$?" -eq 0 ]
 	check_down
 	pass
+fi
 
-it 'should stop - groups'
+if it "$*" 'should stop - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -141,8 +150,9 @@ it 'should stop - groups'
 	check_no_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'should stop - instances'
+if it "$*" 'should stop - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -158,9 +168,10 @@ it 'should stop - instances'
 	check_no_process "echo_server.js $$"
 	check_down
 	pass
+fi
 
 describe 'start'
-it 'should start - everything'
+if it "$*" 'should start - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -174,8 +185,9 @@ it 'should start - everything'
 	check_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'should start - groups'
+if it "$*" 'should start - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -192,8 +204,9 @@ it 'should start - groups'
 	check_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'should start - instances'
+if it "$*" 'should start - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -210,9 +223,9 @@ it 'should start - instances'
 	check_process "echo_server.js A $$"
 	check_down
 	pass
+fi
 
-
-it 'should keep instance up if it dies'
+if it "$*" 'should keep instance up if it dies'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -231,9 +244,33 @@ it 'should keep instance up if it dies'
 	check [ "$?" -eq 0 ]
 	check_down
 	pass
+fi
+
+if it "$*" 'should handle an instant crashing process'; then
+	cd $(mkdeploy)
+	check_init
+	echo "process.exit(1)" > server.js
+	echo "$echo_server" > echo_server.js
+	echo "add --group crash --exec 'node server.js $$' --count 1" > "$TEMP_PATH/.shepherd/config"
+	echo "add --group echo --exec 'node echo_server.js $$' --count 2" >> "$TEMP_PATH/.shepherd/config"
+	check_up
+	shep start --instance crash-0 | grep -q "Starting instance crash-0"
+	check [ "$?" -eq 0 ]
+	sleep 1
+	shep status | grep "crash-0" | grep -q " waiting"
+	check [ "$?" -eq 0 ]
+	shep start --instance echo-0 | grep -q "Starting instance echo-0"
+	check [ "$?" -eq 0 ]
+	shep status | grep "crash-0" | grep " waiting"
+	check [ "$?" -eq 0 ]
+	shep status | grep "echo-0" | grep -q " started"
+	check [ "$?" -eq 0 ]
+	check_down
+	pass
+fi
 
 describe 'disable'
-it 'should disable - everything'
+if it "$*" 'should disable - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -253,8 +290,9 @@ it 'should disable - everything'
 	check_no_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'should disable - groups'
+if it "$*" 'should disable - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -278,8 +316,9 @@ it 'should disable - groups'
 	check_no_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'should disable - instances'
+if it "$*" 'should disable - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -309,8 +348,9 @@ it 'should disable - instances'
 	check_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'start on a disabled instance does nothing'
+if it "$*" 'start on a disabled instance does nothing'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -327,9 +367,10 @@ it 'start on a disabled instance does nothing'
 	check_no_process "echo_server.js A $$"
 	check_down
 	pass
+fi
 
 describe 'enable'
-it 'should enable - everything'
+if it "$*" 'should enable - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -353,8 +394,9 @@ it 'should enable - everything'
 	check_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'should enable - groups'
+if it "$*" 'should enable - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -377,8 +419,9 @@ it 'should enable - groups'
 	check_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 
-it 'should enable - instances'
+if it "$*" 'should enable - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -407,4 +450,5 @@ it 'should enable - instances'
 	check_process "echo_server.js B $$"
 	check_down
 	pass
+fi
 

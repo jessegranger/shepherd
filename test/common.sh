@@ -22,7 +22,12 @@ function describe() {
 	echo $*
 }
 function it() {
-	echo -n " * $* -"
+	if [ -z "$1" -o "$1" = "$2" ]; then
+		echo -n " * $* -"
+		return 0
+	else
+		return 1
+	fi
 }
 function check() {
 	$* && printf " \u2713" || die " fail"

@@ -81,12 +81,13 @@ class Group extends Array
 			(if @port then " --port #{@port}" else "")
 
 class Proc
+	Proc.cooldown = 200
 	constructor: (@id, @cd, @exec, @port, @group) ->
 		# the time of the most recent start
 		@started = false
 		@enabled = true
 		@healthy = undefined # used later by health checks
-		@cooldown = 200 # this increases after each failed restart
+		@cooldown = Proc.cooldown# this increases after each failed restart
 		@expected = false # is this process expected to be running?
 		# expose uptime
 		$.defineProperty @, 'uptime', {
@@ -162,7 +163,7 @@ class Proc
 				@proc = ChildProcess.spawn @exec, opts
 				finishStarting = =>
 					@started = $.now
-					@cooldown = 25
+					@cooldown = Proc.cooldown
 					@statusString = "started"
 					if @port
 						Nginx.sync => done(true)
@@ -182,7 +183,7 @@ class Proc
 								echo "Giving up after waiting for port because", @expected, @enabled
 								return @stop => done(false)
 							if err?
-								echo "Failed to find port owner, err:", err, "after", (Date.now() - _s) + "ms"
+								echo "Failed to find port owner,", err, "after", (Date.now() - _s) + "ms"
 								return @stop retryStart
 							finishStarting()
 					), 50

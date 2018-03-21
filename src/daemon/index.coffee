@@ -30,6 +30,19 @@ readPid = ->
 	catch then undefined
 
 handleMessage = (msg, client, cb) ->
+	if 'auto' of msg
+		if Groups.has(msg.auto)
+			echo "auto to group", msg.auto
+			msg.g = msg.auto
+		else
+			[g, i] = msg.auto.split '-'
+			if Groups.has(g)
+				echo "auto to instance", msg.auto
+				msg.i = g + "-" + parseInt(i, 10)
+			else
+				echo "auto to group (new)"
+				msg.g = msg.auto
+				# return cb?(new Error("invalid auto argument:" + msg.auto))
 	Actions[msg.c]?.onMessage? msg, client, cb
 
 exists = (path) -> try (stat = Fs.statSync path).isFile() or stat.isSocket() catch then false
@@ -78,7 +91,10 @@ runDaemon = => # in the foreground
 				client.on 'data', (msg) ->
 					start = Date.now()
 					msg = $.TNET.parse(msg.toString())
-					handleMessage msg, client, =>
+					handleMessage msg, client, (err) =>
+						if err then try
+							warn msg, "caused", $.debugStack(err)
+							return client?.write $.TNET.stringify $.debugStack(err)
 						_msg = Object.create null
 						for k,v of msg when v? then _msg[k] = v
 						echo "Command handled:", _msg, "in", (Date.now() - start), "ms"

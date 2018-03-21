@@ -88,7 +88,7 @@ class Proc
 		@enabled = true
 		@healthy = undefined # used later by health checks
 		@cooldown = Proc.cooldown# this increases after each failed restart
-		@expected = false # is this process expected to be running?
+		@expected = false # should we restart this proc if it exits
 		# expose uptime
 		$.defineProperty @, 'uptime', {
 			get: => if @started then ($.now - @started) else 0
@@ -161,6 +161,7 @@ class Proc
 				if not dirExists(@cd)
 					return @stop => @group.markAsInvalid "invalid dir"
 				@proc = ChildProcess.spawn @exec, opts
+				@expected = true # tell the 'exit' handler to bring us back up if we die
 				finishStarting = =>
 					@started = $.now
 					@cooldown = Proc.cooldown
@@ -178,10 +179,17 @@ class Proc
 							@started = @expected = @enabled = @healthy = false
 							return done(false)
 						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
-						SlimProcess.waitForPortOwner @proc.pid, @port, @group.grace, (err, owner) =>
+						SlimProcess.waitForPortOwner @proc, @port, @group.grace, (err, owner) =>
 							unless @expected and @enabled # stopped while waiting?
 								echo "Giving up after waiting for port because", @expected, @enabled
 								return @stop => done(false)
+							switch err
+								when 'exit'
+									echo "Process exited immediately, will not retry."
+									return @stop => @disable => @statusString = "failed"
+								when 'timeout'
+									echo "Port #{@port} was not owned within the timeout: #{@group.grace}ms"
+									return @stop => done(false)
 							if err?
 								echo "Failed to find port owner,", err, "after", (Date.now() - _s) + "ms"
 								return @stop retryStart
@@ -219,6 +227,7 @@ class Proc
 			try process.kill @proc.pid
 			return true
 		@started = false
+		@proc = null
 		@statusString = if @enabled then "stopped" else "disabled"
 		cb? false
 		return false
@@ -230,7 +239,6 @@ class Proc
 	enable: (cb) ->
 		acted = not @enabled
 		@enabled = true
-		@statusString = "enabled"
 		if acted then @start cb
 		else cb?()
 		acted
@@ -241,11 +249,10 @@ class Proc
 		false
 
 	disable: (cb) ->
-		acted = @enabled
+		acted = @started or @enabled
 		@enabled = false
-		if acted then @stop cb
-		@statusString = "disabled"
-		if not acted then cb?()
+		if acted then @stop => @statusString = "disabled"; cb?()
+		else cb?()
 		acted
 
 actOnInstance = (method, instanceId, cb) ->

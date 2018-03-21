@@ -91,23 +91,29 @@ getPortOwner = (port, cb) =>
 					return cb null, proc
 		cb null, null
 
-waitForPortOwner = (pid, port, timeout, cb) =>
-	pid = parseInt pid
-	port = String port
+waitForPortOwner = (target, port, timeout, cb) =>
+	target_port = String port
 	_timeout = setTimeout (=>
-		cb('timeout')
-		cb = null
+		done('timeout')
 	), timeout
+	target.on 'exit', exit_handler = (=> done 'exit')
+	done = (err, proc) =>
+		clearTimeout _timeout
+		target.removeListener 'exit', exit_handler
+		cb?(err, proc)
+		cb = null
 	do checkAgain = =>
 		refresh_process_table (err, procs) =>
-			return cb(err) if err
+			return done(err) if err
 			for _,proc of procs
 				for _port in proc.ports
 					this_port = _port.split(':')[1]
-					if this_port is port and is_child_of(procs, pid, proc.pid)
-						clearTimeout _timeout
-						return cb?(null, proc)
+					if this_port is target_port and is_child_of(procs, target.pid, proc.pid)
+						return done(null, proc)
 			cb? and setTimeout checkAgain, 400
+			null
+		null
+	null
 
 getProcessTable = refresh_process_table
 

@@ -108,16 +108,16 @@ class Proc
 
 	# Start this process if it isn't already.
 	start: (cb) -> # cb called with a 'started' flag that indicates if any work was done
-		done = (ret) => cb?(ret); ret
+		done = (err, ret) => cb?(err, ret); ret
 		if @started or not @enabled
 			echo "Not starting because", @started, @enabled
-			return done(false)
+			return done(null, false)
 		@expected = true
 		env = Object.assign {}, process.env, { PORT: @port }
 		clearPort = (cb) =>
 			unless @expected and @enabled
 				echo "Giving up on clearPort because", @expected, @enabled
-				return done(false) # stopped while waiting
+				return done(null, false) # stopped while waiting
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
 				invalidPort = =>
@@ -134,7 +134,7 @@ class Proc
 						setTimeout (=> clearPort cb), 1000
 			else cb?()
 		retryStart = =>
-			return done(false) if @started or not @enabled
+			return done(null, false) if @started or not @enabled
 			@cooldown = (Math.min 30000, @cooldown * 2)
 			@statusString = "waiting #{@cooldown}"
 			setTimeout doStart, @cooldown
@@ -142,11 +142,11 @@ class Proc
 		do doStart = =>
 			if @started or not @expected
 				echo "Giving up on doStart because", @expected, @enabled
-				return done(false)
+				return done(null, false)
 			clearPort (err) =>
 				if err or not @expected
 					echo "Giving up after clearPort because", err, @expected
-					return done(false)
+					return done(null, false)
 				checkStarted = null
 				@statusString = "starting"
 				verbose "exec:", @exec, "as", @id
@@ -155,7 +155,7 @@ class Proc
 					verbose "cd:", @cd
 				catch err # it's actually possible for node's internals to throw an exception here if cwd() is weird
 					@markAsInvalid err.message
-					return done(false)
+					return done(err, false)
 				# echo "opts:",
 				opts = { shell: true, cwd: @cd, env: env }
 				if not dirExists(@cd)
@@ -173,26 +173,28 @@ class Proc
 				if @port
 					_s = Date.now()
 					checkStarted = setTimeout (=>
-						return done(false) unless @proc? and @expected
+						return done(null, false) unless @proc? and @expected
 						unless @proc?.pid?
 							@statusString = "exec failed"
 							@started = @expected = @enabled = @healthy = false
-							return done(false)
+							return done(null, false)
 						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
 						SlimProcess.waitForPortOwner @proc, @port, @group.grace, (err, owner) =>
 							unless @expected and @enabled # stopped while waiting?
 								echo "Giving up after waiting for port because", @expected, @enabled
-								return @stop => done(false)
+								return @stop => done(null, false)
 							switch err
 								when 'exit'
-									echo "Process exited immediately, will not retry."
-									return @stop => @disable => @statusString = "failed"
+									warn "Process exited immediately, will not retry."
+									@proc = null
+									return @stop => @disable => @statusString = "failed"; done(null, false)
 								when 'timeout'
 									echo "Port #{@port} was not owned within the timeout: #{@group.grace}ms"
-									return @stop => done(false)
-							if err?
-								echo "Failed to find port owner,", err, "after", (Date.now() - _s) + "ms"
-								return @stop retryStart
+									return @stop => done(null, false)
+								else
+									if err?
+										echo "Failed to find port owner,", err, "after", (Date.now() - _s) + "ms"
+										return @stop retryStart
 							finishStarting()
 					), 50
 				else # if there is no port to wait for then staying up for a few seconds counts as started
@@ -203,7 +205,7 @@ class Proc
 				@proc.stderr.on 'data', (data) => @log "(stderr)", data.toString("utf8")
 				@proc.on 'exit', (code, signal) =>
 					clearTimeout checkStarted
-					@statusString = "exit(#{code})"
+					@statusString = "exit(#{code})" + (if @expected then " expected" else "")
 					@started = false
 					if @expected
 						echo "Exit was not expected, restarting..."
@@ -221,15 +223,15 @@ class Proc
 				@started = false
 				@statusString = if @enabled then "stopped" else "disabled"
 				if @port
-					Nginx.sync => cb? true
+					Nginx.sync => cb? null, true
 				else
-					cb? true
+					cb? null, true
 			try process.kill @proc.pid
 			return true
 		@started = false
 		@proc = null
 		@statusString = if @enabled then "stopped" else "disabled"
-		cb? false
+		cb? null, false
 		return false
 
 	restart: (cb) ->

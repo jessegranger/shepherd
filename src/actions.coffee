@@ -116,7 +116,7 @@ module.exports.Actions = Actions = {
 	reload: _restart_action # alias
 
 	# Get the status of everything.
-	status: {
+	status: statusAction = {
 		toMessage: (cmd) -> { c: 'status' }
 		onResponse: (resp, socket) ->
 			try
@@ -173,6 +173,7 @@ module.exports.Actions = Actions = {
 				cb? null, true
 			return false
 	}
+	stat: statusAction
 
 	# Disable a group or instance.
 	disable: {

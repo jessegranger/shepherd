@@ -25,14 +25,14 @@ Commands:
 | init    | Create a `.shepherd` folder here.        | `shep init`                                               |
 | up      | Ensure the daemon is running.            | `shep up`                                                 |
 | down    | Stop the daemon.                         | `shep down`                                               |
-| add     | Add a process group.                     | `shep add --group echo --exec "node echo.js" --port 8081` |
-| remove  | Remove a process group.                  | `shep remove --group echo`                                |
-| replace | Replace a group with new settings.       | `shep replace --group echo --exec "node foo.js"`          |
-| start   | Start processes (autostarts the daemon). | `shep start --instance echo-1`                            |
-| stop    | Stop processes.                          | `shep stop --group echo`                                  |
-| restart | Restart processes.                       | `shep restart --instance echo-1`                          |
+| add     | Add a process group.                     | `shep add echo --exec "node echo.js" --port 8081` |
+| remove  | Remove a process group.                  | `shep remove echo`                                |
+| replace | Replace a group with new settings.       | `shep replace echo --exec "node foo.js"`          |
+| start   | Start processes (autostarts the daemon). | `shep start echo-1`                            |
+| stop    | Stop processes.                          | `shep stop echo`                                  |
+| restart | Restart processes.                       | `shep restart echo-1`                          |
 | status  | Report the current status.               | `shep status --verbose`                                   |
-| scale   | Scale a process group to a new size.     | `shep scale --group echo --count 2`                       |
+| scale   | Scale a process group to a new size.     | `shep scale echo --count 2`                       |
 | nginx   | Configure the nginx integration.         | `shep nginx --file '%/nginx'`                             |
 | log     | Control the log output.                  | `shep log --tail`                                         |
 
@@ -67,7 +67,7 @@ If a `.shepherd` folder already exists, and has a `defaults` file, but no `confi
 If `config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
 
 	log --file "%/log"	
-	add --group echo --cd test/echo --exec "node echo_server.js" --count 4 --port 9001
+	add echo --cd test/echo --exec "node echo_server.js" --count 4 --port 9001
 	nginx --disable
 	start
 

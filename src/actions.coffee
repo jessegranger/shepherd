@@ -119,28 +119,36 @@ module.exports.Actions = Actions = {
 	status: {
 		toMessage: (cmd) -> { c: 'status' }
 		onResponse: (resp, socket) ->
+			try
+				if not socket?
+					return console.log "Socket: null."
+				if not ( resp? and ('object' is typeof resp) and ('groups' of resp) )
+					return console.log "Response:", resp
 
-			console.log "Status: online, pid: #{resp.pid} net: (#{socket._connectLatency}ms, #{resp.send - resp.start}ms, #{Date.now() - resp.send}ms)"
-			console.log "Groups: #{resp.groups.length}"
+				console.log "Status: online, pid: #{resp.pid} net: (#{socket._connectLatency}ms, #{resp.send - resp.start}ms, #{Date.now() - resp.send}ms)"
+				console.log "Groups: #{resp.groups.length}"
 
-			pad_columns = (a,w=[19, 7, 7, 10, 8, 8, 14, 7, 7]) ->
-				(($.padLeft String(item ? ''), w[i]) for item,i in a ).join ''
+				pad_columns = (a,w=[19, 7, 7, 10, 8, 8, 14, 7, 7]) ->
+					(($.padLeft String(item ? ''), w[i]) for item,i in a ).join ''
 
-			for group,g in resp.groups
-				if g is 0
-					console.log pad_columns ["Instance", "PID", "Port", "Uptime", "Healthy", "Enabled", "Status", "CPU", "RAM"]
-				else
-					console.log pad_columns ["--------", "---", "----", "------", "-------", "-------", "------", "---", "---"]
-				for line,i in group.procs
-					line[1] ?= Chalk.red "-"
-					line[2] ?= Chalk.red "-"
-					line[3] = formatUptime line[3]
-					line[4] = healthSymbol line[4]
-					line[5] = healthSymbol line[5]
-					line[7] = parseFloat(line[7]).toFixed(1) + "%"
-					line[8] = $.commaize(Math.round(line[8]/1024)) + "mb"
-					console.log pad_columns line
-			socket.end()
+				for group,g in resp.groups
+					if g is 0
+						console.log pad_columns ["Instance", "PID", "Port", "Uptime", "Healthy", "Enabled", "Status", "CPU", "RAM"]
+					else
+						console.log pad_columns ["--------", "---", "----", "------", "-------", "-------", "------", "---", "---"]
+					for line,i in group.procs
+						has_pid = line[1]?
+						line[1] ?= Chalk.red "-"
+						line[2] ?= Chalk.red "-"
+						line[3] = formatUptime line[3]
+						line[4] = has_pid and (healthSymbol line[4]) or line[1]
+						line[5] = healthSymbol(line[5])
+						line[7] = has_pid and (parseFloat(line[7]).toFixed(1) + "%") or line[1]
+						line[8] = has_pid and ($.commaize(Math.round(line[8]/1024)) + "mb") or line[1]
+						console.log pad_columns line
+				socket.end()
+			finally
+				socket?.end()
 
 		onMessage: (msg, client, cb) ->
 			output = {
@@ -340,14 +348,19 @@ module.exports.Actions = Actions = {
 	config: {
 		options: [
 			[ "--purge", "Remove all configuration." ]
+			[ "--list", "Show the current configuration." ]
 		]
-		toMessage: (cmd) -> { c: 'config', p: (trueFalse cmd.purge) }
+		toMessage: (cmd) -> { c: 'config', p: (trueFalse cmd.purge), l: (trueFalse cmd.list) }
 		onMessage: (msg, client, cb) ->
-			if required msg, 'p', "--purge is the only option for 'config'"
+			if msg.p
 				Fs.writeFile configFile, "", cb
 				client?.write $.TNET.stringify "Cleared log file."
+			else if msg.l
+				Fs.readFile configFile, (err, data) ->
+					return if err
+					client?.write $.TNET.stringify String(data)
 			else
-				client?.write $.TNET.stringify "--purge is the only option for 'config'"
+				client?.write $.TNET.stringify "Unknown option for 'config' command."
 			false
 		onResponse: echoResponse
 	}

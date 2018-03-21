@@ -25,7 +25,7 @@ doInit = (cb) ->
 		createBasePath ".", cb
 	null
 
-doServerCommand = (_cmd, cb) =>
+sendServerCmd = (_cmd, cb) =>
 	{ Actions } = require '../actions'
 	unless action = Actions[_cmd]
 		return warn "No such action:", _cmd
@@ -57,10 +57,12 @@ doServerCommand = (_cmd, cb) =>
 			socket._connectLatency = Date.now() - connectStart
 			try
 				msg = action.toMessage cmd
+				if cmd._.length > 1 and not (('group' of cmd) or ('instance' of cmd))
+					if /\w/.test cmd._[1]
+						msg.auto = cmd._[1]
 				bytes = $.TNET.stringify msg
 			catch err then return on_error err
 			socket.write bytes, ->
-				# some commands wait for a response
 				action.onConnect?(socket)
 				if 'onResponse' of action
 					timeout = $.delay 1000, ->
@@ -78,10 +80,10 @@ doServerCommand = (_cmd, cb) =>
 
 switch cmd._[0] # some commands get handled without connecting to the daemon
 	when 'init' then return doInit exit_soon
-	when 'up' then Daemon.doStart(false); $.delay 1000, => doServerCommand 'status'
+	when 'up' then Daemon.doStart(false); $.delay 1000, => sendServerCmd 'status'
 	when 'down' then return Daemon.doStop(true)
-	else doServerCommand cmd._[0], =>
+	else sendServerCmd cmd._[0], =>
 		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale','replace']
 			setTimeout (=>
-				doServerCommand 'status'
+				sendServerCmd 'status'
 			), 300

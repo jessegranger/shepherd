@@ -14,7 +14,7 @@ _reading = false
 saveConfig = (cb) ->
 	if _reading
 		$.log "Cannot saveConfig while reading config..."
-		return cb?(false)
+		return cb?(null, false)
 	$.log "Saving config..."
 	clean = (o) -> o.replace(basePath, '%') + (o.length and "\n" or "")
 	buf = clean Output.toConfig()
@@ -32,19 +32,19 @@ saveConfig = (cb) ->
 	buf += clean Nginx.toConfig()
 	buf += "start\n"
 	Fs.writeFile configFile, buf, (err) ->
-		cb?(not err)
+		cb?(err, false)
 	true
 
 readConfig = (cb) ->
 	if _reading
-		return cb?(false)
+		return cb?(null, false)
 	_reading = true
 	_err_text = ""
 	config_lines = null
 	done = =>
 		verbose "Finished reading config...", configFile, _err_text
 		_reading = false
-		cb?()
+		cb?(null, true)
 	try config_lines = String(Fs.readFileSync configFile).split("\n")
 	catch err
 		_err_text = "(empty config file)"

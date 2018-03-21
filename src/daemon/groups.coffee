@@ -322,9 +322,8 @@ removeGroup = (name, cb) ->
 
 afterAction = (method, ret, cb) ->
 	if method in ['enable', 'disable', 'add', 'remove', 'replace']
-		saveConfig => cb?(ret)
-	else cb?(ret)
-	ret
+		saveConfig (err, acted) => cb?(err, ret)
+	else cb?(null, ret)
 
 simpleAction = (method) -> (msg, client, cb) ->
 	_line = ''

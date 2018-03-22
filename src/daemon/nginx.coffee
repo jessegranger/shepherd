@@ -32,7 +32,7 @@ setKeepAlive = (sec) -> keepalive = sec
 generate = =>
 	buf = ""
 	Groups.forEach (group) =>
-		if group.length > 0 and group[0].port
+		if group.port?
 			buf += template { group, keepalive, name: group.name }
 	buf
 

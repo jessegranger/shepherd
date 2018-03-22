@@ -11,6 +11,7 @@ ChildProcess = require 'child_process'
 int = (n) -> parseInt((n ? 0), 10)
 { yesNo, formatUptime, trueFalse } = require "./format"
 { configFile } = require "./files"
+saveConfig = null
 
 healthSymbol = (v) -> switch v
 	when undefined then Chalk.yellow "?"
@@ -28,7 +29,7 @@ required = (msg, key, label) ->
 
 echoResponse = (resp, socket) -> console.log resp; socket.end()
 
-module.exports.Actions = Actions = {
+Object.assign module.exports, { Actions: {
 
 	# Adding a group
 	add: addAction = {
@@ -333,16 +334,20 @@ module.exports.Actions = Actions = {
 			[ "--file <file>", "Auto-generate an nginx file with an upstream definition for each group."]
 			[ "--reload <cmd>", "What command to run in order to cause nginx to reload."]
 			[ "--disable", "Don't generate files or reload nginx." ]
+			[ "--enable", "Generate a config file and reload nginx upon state changes." ]
 			[ "--keepalive <n>", "How many connections to hold open." ]
 		]
-		toMessage: (cmd) -> { c: 'nginx', f: cmd.file, r: cmd.reload, k: cmd.keepalive, d: trueFalse cmd.disable }
+		toMessage: (cmd) -> { c: 'nginx', f: cmd.file, r: cmd.reload, k: cmd.keepalive, d: (trueFalse cmd.disable), e: (trueFalse cmd.enable) }
 		onMessage: (msg, client, cb) ->
 			if msg.f?.length then Nginx.setFile(msg.f)
 			if msg.r?.length then Nginx.setReload(msg.r)
 			if msg.k?.length then Nginx.setKeepAlive(msg.k)
-			Nginx.setDisabled msg.d
-			client?.write $.TNET.stringify "Applied nginx configuration: #{Nginx.toConfig()}"
+			if msg.e then Nginx.setDisabled false
+			if msg.d then Nginx.setDisabled true
+			client?.write $.TNET.stringify "nginx configuration: #{Nginx.toConfig()}"
+			saveConfig?()
 			cb?()
+			true
 		onResponse: echoResponse
 	}
 
@@ -366,4 +371,6 @@ module.exports.Actions = Actions = {
 		onResponse: echoResponse
 	}
 
-}
+}}
+
+{ saveConfig } = require './util/config'

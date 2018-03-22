@@ -5,7 +5,7 @@ Fs = require 'fs'
 Nginx = require '../daemon/nginx'
 Output = require '../daemon/output'
 { Groups } = require '../daemon/groups'
-{ Actions } = require '../actions'
+Actions = {} # placeholder
 { parseArguments } = require './parse-args'
 { configFile, basePath } = require '../files'
 
@@ -69,3 +69,5 @@ readConfig = (cb) ->
 	true
 
 Object.assign module.exports, { saveConfig, readConfig }
+
+{ Actions } = require '../actions'

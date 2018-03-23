@@ -16,7 +16,7 @@ saveConfig = (cb) ->
 		$.log "Cannot saveConfig while reading config..."
 		return cb?(null, false)
 	$.log "Saving config..."
-	clean = (o) -> o.replace(basePath, '%') + (o.length and "\n" or "")
+	clean = (o) -> (o?.replace(basePath, '%') ? '') + (o?.length and "\n" or "")
 	buf = clean Output.toConfig()
 	Groups.forEach (group) ->
 		buf += clean group.toConfig()

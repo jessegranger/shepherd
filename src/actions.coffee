@@ -27,7 +27,7 @@ required = (msg, key, label) ->
 		return warn "#{label} is required."
 	true
 
-echoResponse = (resp, socket) -> console.log resp; socket.end()
+echoResponse = (resp, socket) -> console.log "Daemon says:", resp; socket.end()
 
 Object.assign module.exports, { Actions: {
 
@@ -230,24 +230,24 @@ Object.assign module.exports, { Actions: {
 		]
 		toMessage: (cmd) -> { c: 'log', l: (trueFalse cmd.list), d: (cmd.disable), f: cmd.file, t: (trueFalse cmd.tail), p: (cmd.clear ? cmd.purge) }
 		onMessage: (msg, client, cb) ->
+			ret = false
 			send = (obj) =>
-				client?.write $.TNET.stringify [ msg, obj ]
+				try client?.write $.TNET.stringify [ msg, obj ]
+				catch err
+					return cb?(err, false)
 			if msg.f
-				Output.setOutput msg.f, (err, acted) =>
-					acted and send msg.f
+				Output.setOutput msg.f, (err, acted) => acted and send msg.f
 			if msg.d
-				Output.setOutput null, (err, acted) =>
-					acted and send msg.d
+				Output.setOutput null, (err, acted) => acted and send msg.d
 			if msg.p
-				ChildProcess.spawn("echo > #{Output.getOutputFile()}", { shell: true }).on 'exit', =>
-					send msg.p
+				outputFile = Output.getOutputFile()
+				if File.exists(outputFile)
+					ChildProcess.spawn("echo Log purged at `date`> #{outputFile}", { shell: true }).on 'exit', => send msg.p
 			if client?
 				if msg.l
-					client.write $.TNET.stringify [ msg, Output.getOutputFile() ]
+					send Output.getOutputFile()
 				if msg.t
-					try client.write $.TNET.stringify [ msg, null ]
-					catch err
-						return cb?()
+					send null # signal the other side to init the stream
 					handler = (data) =>
 						try client.write $.TNET.stringify [ { t: true }, String(data) ]
 						catch err
@@ -257,8 +257,10 @@ Object.assign module.exports, { Actions: {
 					client.on 'close', detach
 					client.on 'error', detach
 					Output.stream.on 'tail', handler
-			cb?()
-			return false
+			ret = (msg.f or msg.d)
+			if ret then saveConfig?()
+			cb?(null, ret)
+			return ret
 		onResponse: (item, socket) ->
 			[ msg, resp ] = item
 			if msg.f
@@ -288,43 +290,56 @@ Object.assign module.exports, { Actions: {
 			[ "--delete", "Remove a health check." ]
 			[ "--pause", "Temporarily pause a health check." ]
 			[ "--resume", "Resume a health check after pausing." ]
+			[ "--list", "List all current health checks." ]
 		]
 		toMessage: (cmd) -> {
 			c: 'health',
 			g: cmd.group,
 			p: cmd.path,
 			s:(int cmd.status),
-			i:(1000 * int cmd.interval),
+			v:(1000 * int cmd.interval),
 			o:(int cmd.timeout),
 			t: cmd.contains,
 			d:(trueFalse cmd.delete),
 			z:(trueFalse cmd.pause),
-			r:(trueFalse cmd.resume)
+			r:(trueFalse cmd.resume),
+			l: (trueFalse cmd.list)
 		}
 		onMessage: (msg, client, cb) ->
-			ret = false
-			send = (x) -> client?.write $.TNET.stringify x
-			if not required(msg, g, "--group is required with 'health'")
-				send "--group is required."
-			else if not Groups.has(msg.g)
-				send "No such group: #{msg.g}"
-			else if msg.d
-				ret = Health.unmonitor Groups.get(msg.g)
-				send "Will stop monitoring #{msg.g}."
-			else if msg.z
-				if ret = Health.pause msg.g
-					send "Pausing monitor of #{msg.g}."
-				else send "Group is not currently monitored."
-			else if msg.r
-				if ret = Health.resume msg.g
-					send "Resuming monitor of #{msg.g}."
-				else send "Group does not have a resumable monitor."
+			reply = (x, ret) -> client?.write $.TNET.stringify x; cb?(ret); ret
+			if msg.l # --list
+				return reply Health.toConfig(), false
+
+			unless 'g' of msg
+				return reply "Group is required.", false
+
+			if not Groups.has(msg.g)
+				return reply "No such group: #{msg.g}", false
+
+			if msg.d # --delete
+				Health.unmonitor Groups.get(msg.g)
+				return reply "Will stop monitoring #{msg.g}.", true
+
+			if msg.z # --pause
+				if Health.pause msg.g
+					return reply "Pausing monitor of #{msg.g}.", true
+				else
+					return reply "Group is not currently monitored.", false
+
+			if msg.r # --resume
+				if Health.resume msg.g
+					return reply "Resuming monitor of #{msg.g}.", true
+				else
+					return reply "Group does not have a resumable monitor.", false
+
+			unless 'p' of msg
+				return reply "--path is required when adding a monitor.", false
+
+			if Health.monitor Groups.get(msg.g), msg.p, msg.v, msg.s, msg.t, msg.o
+				return reply "Adding monitor for #{msg.g}.", true
 			else
-				if ret = Health.monitor Groups.get(msg.g), msg.p, msg.i, msg.s, msg.t, msg.o
-					send "Adding monitor for #{msg.g}."
-				else send "Did not add monitor."
-			cb?(ret)
-			ret
+				return reply "Did not add monitor.", false
+
 		onResponse: echoResponse
 	}
 
@@ -335,19 +350,64 @@ Object.assign module.exports, { Actions: {
 			[ "--reload <cmd>", "What command to run in order to cause nginx to reload."]
 			[ "--disable", "Don't generate files or reload nginx." ]
 			[ "--enable", "Generate a config file and reload nginx upon state changes." ]
-			[ "--keepalive <n>", "How many connections to hold open." ]
+
+			[ "--group <name>", "Optional. If given, the following options apply:" ]
+			[ "--port <n>", "Default 80 (or 443). 'server { listen <n>; }'" ]
+			[ "--name <hostname>", "Default is the group name. 'server { server_name <name>; }'" ]
+			[ "--ssl_cert <path>", "Optional. If given, port defaults to 443." ]
+			[ "--ssl_key <path>", "Optional. If given, port defaults to 443." ]
+
+			[ "--list", "Show the current nginx configuration." ]
+
 		]
-		toMessage: (cmd) -> { c: 'nginx', f: cmd.file, r: cmd.reload, k: cmd.keepalive, d: (trueFalse cmd.disable), e: (trueFalse cmd.enable) }
+		toMessage: (cmd) -> {
+			c: 'nginx'
+			f: cmd.file
+			r: cmd.reload
+			k: cmd.keepalive
+			d: (trueFalse cmd.disable)
+			e: (trueFalse cmd.enable)
+			l: cmd.list
+			g: cmd.group
+			p: cmd.port
+			n: cmd.name
+			sc: cmd.ssl_cert
+			sk: cmd.ssl_key
+		}
 		onMessage: (msg, client, cb) ->
+			reply = (m, ret) ->
+				if ret
+					# client?.write $.TNET.stringify m
+					saveConfig?()
+				cb? m, ret
+				ret
+			if msg.g?
+				if not Groups.has(msg.g)
+					return reply "No such group.", false
+				group = Groups.get(msg.g)
+				if msg.p?
+					group.public_port = parseInt(msg.p, 10)
+				if msg.n?
+					group.public_name = msg.n
+				if msg.sc?
+					unless File.exists(msg.sc)
+						return reply "ssl_cert file '#{msg.sc}' does not exist.", false
+					group.ssl_cert = msg.sc
+				if msg.sk?
+					unless File.exists(msg.sk)
+						return reply "ssl_key file '#{msg.sk}' does not exist.", false
+					group.ssl_key = msg.sc
+				return reply "Group updated.", true
+
+			if msg.l?
+				return reply Nginx.toConfig(), false
+
 			if msg.f?.length then Nginx.setFile(msg.f)
 			if msg.r?.length then Nginx.setReload(msg.r)
-			if msg.k?.length then Nginx.setKeepAlive(msg.k)
 			if msg.e then Nginx.setDisabled false
 			if msg.d then Nginx.setDisabled true
-			client?.write $.TNET.stringify "nginx configuration: #{Nginx.toConfig()}"
 			saveConfig?()
-			cb?()
-			true
+			return reply "nginx configuration updated.", true
 		onResponse: echoResponse
 	}
 

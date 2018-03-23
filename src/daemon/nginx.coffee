@@ -5,17 +5,46 @@ Files = require '../files'
 { Groups } = require './groups'
 Handlebars = require 'handlebars'
 ChildProcess = require 'child_process'
+{ expandPath } = Files
 
 defaults = {
 	reload: reload = "service nginx reload"
 	server_name: server_name = null
 	server_port: server_port = 80
 	disabled: disabled = true
-	template:  template = "%/nginx.template"
+	template:  Files.nginxTemplate = "%/nginx.template"
+	templateText: """
+		upstream {{ name }} {
+		{{#each group}}
+		{{#if this.port}}
+			server 127.0.0.1:{{ this.port }} {{#unless this.started}}down{{/unless}};
+		{{/if}}
+		{{/each}}
+		}
+		server {
+			listen {{ public_port }};
+			server_name {{ public_name }};
+			location / {
+				proxy_pass http://{{ name }};
+			}
+		}
+		{{#if ssl_cert}}
+		server {
+			listen 443;
+			server_name {{ public_name }};
+			ssl on;
+			ssl_certificate {{ ssl_cert }};
+			ssl_certificate_key {{ ssl_key }};
+			location / {
+				proxy_pass http://{{ name }};
+			}
+		}
+		{{/if}}
+	"""
 }
 
 setReload = (r) -> reload = r
-setTemplate = (f) -> template = f
+setTemplate = (f) -> Files.nginxTemplate = f
 setFile = (f) -> Files.nginxFile = f.replace(/^~/, process.env.HOME).replace(/^%/, Files.basePath)
 setDisabled = (d) -> disabled = d
 
@@ -36,15 +65,17 @@ generate = (t)=>
 
 writeNginxFile = (cb) =>
 	return cb?(null, false) if disabled
-	verbose "Reading nginx template...", template
-	Fs.readFile template.replace(/^%/, Files.basePath), (err, data) ->
+	start = Date.now()
+	verbose "Reading nginx template...", Files.nginxTemplate
+	Fs.readFile expandPath(Files.nginxTemplate), (err, data) ->
 		if err
 			warn "Failed to read nginx template:", err
 			return cb?(null, false)
 		t = Handlebars.compile data.toString('utf8')
 		text = generate(t)
 		verbose "Saving nginx file...", Files.nginxFile
-		Fs.writeFile Files.nginxFile, text, (err) ->
+		Fs.writeFile expandPath(Files.nginxFile), text, (err) ->
+			verbose "writeNginxFile took #{Date.now() - start} ms"
 			cb?(err, not err?)
 		null
 	null
@@ -52,7 +83,7 @@ writeNginxFile = (cb) =>
 toConfig = =>
 	_reload = if reload is defaults.reload then "" else " --reload '#{reload}'"
 	_file = if Files.nginxFile is Files.makePath("nginx") then "" else " --file '#{Files.nginxFile}'"
-	_template = if template is defaults.template then "" else " --template '#{template}'"
+	_template = if Files.nginxTemplate is defaults.template then "" else " --template '#{Files.nginxTemplate}'"
 	_disabled = if disabled then " --disable" else " --enable"
 	buf = "nginx#{_disabled}#{_reload}#{_file}#{_template}"
 	Groups.forEach (group) =>
@@ -64,17 +95,12 @@ toConfig = =>
 				(if group.ssl_key then " --ssl_key #{group.ssl_key}" else ""))
 	buf
 
-willCall = null
-
 reloadNginx = (cb) =>
 	return cb?(null, false) if disabled
-	clearTimeout willCall
-	willCall = setTimeout (=>
-		echo "Reloading nginx..."
-		p = ChildProcess.exec(reload, { shell: true })
-		p.stdout.on 'data', (data) -> $.log "#{reload}", data.toString("utf8")
-		p.stderr.on 'data', (data) -> $.log "#{reload} (stderr)", data.toString("utf8")
-	), 2000
+	echo "Reloading nginx..."
+	p = ChildProcess.exec(reload, { shell: true })
+	p.stdout.on 'data', (data) -> $.log "#{reload}", data.toString("utf8")
+	p.stderr.on 'data', (data) -> $.log "#{reload} (stderr)", data.toString("utf8")
 	cb?(null, false)
 
 sync = (cb) =>
@@ -82,5 +108,5 @@ sync = (cb) =>
 		return cb?(err, acted) if err or not acted
 		reloadNginx cb
 
-Object.assign module.exports, { writeNginxFile, reloadNginx, setReload, setTemplate, setFile, setDisabled, toConfig, sync }
+Object.assign module.exports, { writeNginxFile, reloadNginx, setReload, setTemplate, setFile, setDisabled, toConfig, sync, defaults }
 

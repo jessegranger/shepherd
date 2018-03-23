@@ -1,8 +1,8 @@
 
-$ = require 'bling'
+{ $, echo, verbose } = require '../common'
 Fs = require 'fs'
 { Writable } = require 'stream'
-{ outputFile } = require '../files'
+{ outputFile, expandPath } = require '../files'
 
 fileStream = null
 
@@ -32,14 +32,14 @@ setOutput = (file, cb) =>
 		return cb?(null, false)
 	if not file?
 		outputFile = null
-		cb?(null, true)
+		return cb?(null, true)
 	else
 		try
-			console.log "Starting output to", file
-			s = fileStream = Fs.createWriteStream file, { flags: 'a' }
+			echo "Starting output to", file
+			s = fileStream = Fs.createWriteStream expandPath(file), { flags: 'a' }
 			outputFile = file
 			s.on 'open', ->
-				s.write "Opened for writing by shepd at " + String(new Date()) + "\n"
+				s.write "Opened for writing at " + String(new Date()) + "\n"
 				cb?(null, true)
 			s.on 'close', ->
 				console.log "writeStream close:", file

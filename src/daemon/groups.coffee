@@ -6,7 +6,7 @@ saveConfig = null
 Shell = require 'shelljs'
 ChildProcess = require 'child_process'
 SlimProcess = require '../util/process-slim'
-{ dirExists } = require '../files'
+{ exists } = require '../files'
 
 # the global herd of processes
 Groups = new Map()
@@ -52,7 +52,7 @@ class Group extends Array
 		true
 	start: (cb) ->
 		do oneStep = (i=0) =>
-			return (if @port then Nginx.sync(cb) else cb?()) unless i < @length
+			return cb?(null, true) unless i < @length
 			@[i].start => oneStep(i+1)
 		true
 	stop: (cb) ->
@@ -60,14 +60,14 @@ class Group extends Array
 			proc.expected = false
 		for proc in @
 			proc.stop()
-		cb?()
+		cb?(null, true)
 	markAsInvalid: (reason) ->
 		for proc in @
 			proc.markAsInvalid reason
 		@
 	actOnAll: (method, cb) ->
 		progress = $.Progress(@length)
-		progress.wait cb
+		progress.wait (err) => cb(err, true)
 		for x in @
 			x[method] => progress.finish 1
 		return progress
@@ -110,13 +110,13 @@ class Proc
 	start: (cb) -> # cb called with a 'started' flag that indicates if any work was done
 		done = (err, ret) => cb?(err, ret); ret
 		if @started or not @enabled
-			echo "Not starting because", @started, @enabled
+			verbose "Not starting because", @started, @enabled
 			return done(null, false)
 		@expected = true
 		env = Object.assign {}, process.env, { PORT: @port }
 		clearPort = (cb) =>
 			unless @expected and @enabled
-				echo "Giving up on clearPort because", @expected, @enabled
+				verbose "Giving up on clearPort because", @expected, @enabled
 				return done(null, false) # stopped while waiting
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
@@ -141,24 +141,23 @@ class Proc
 			return true
 		do doStart = =>
 			if @started or not @expected
-				echo "Giving up on doStart because", @expected, @enabled
+				verbose "Giving up on doStart because", @expected, @enabled
 				return done(null, false)
 			clearPort (err) =>
 				if err or not @expected
-					echo "Giving up after clearPort because", err, @expected
+					verbose "Giving up after clearPort because", err, @expected
 					return done(null, false)
 				checkStarted = null
 				@statusString = "starting"
-				verbose "exec:", @exec, "as", @id
 				try
 					@cd = Path.resolve(process.cwd(), @cd)
 					verbose "cd:", @cd
 				catch err # it's actually possible for node's internals to throw an exception here if cwd() is weird
 					@markAsInvalid err.message
 					return done(err, false)
-				# echo "opts:",
+				verbose "exec:", @exec, "as", @id
 				opts = { shell: true, cwd: @cd, env: env }
-				if not dirExists(@cd)
+				if not exists(@cd)
 					return @stop => @group.markAsInvalid "invalid dir"
 				@proc = ChildProcess.spawn @exec, opts
 				@expected = true # tell the 'exit' handler to bring us back up if we die

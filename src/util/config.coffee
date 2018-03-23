@@ -7,15 +7,14 @@ Output = require '../daemon/output'
 { Groups } = require '../daemon/groups'
 Actions = {} # placeholder
 { parseArguments } = require './parse-args'
-{ configFile, basePath } = require '../files'
+{ configFile, basePath, expandPath } = require '../files'
 
 _reading = false
 
 saveConfig = (cb) ->
 	if _reading
-		$.log "Cannot saveConfig while reading config..."
 		return cb?(null, false)
-	$.log "Saving config..."
+	verbose "Saving config..."
 	clean = (o) -> (o?.replace(basePath, '%') ? '') + (o?.length and "\n" or "")
 	buf = clean Output.toConfig()
 	Groups.forEach (group) ->
@@ -31,7 +30,7 @@ saveConfig = (cb) ->
 				buf += "disable --instance #{proc.id}\n"
 	buf += clean Nginx.toConfig()
 	buf += "start\n"
-	Fs.writeFile configFile, buf, (err) ->
+	Fs.writeFile expandPath(configFile), buf, (err) ->
 		cb?(err, false)
 	true
 
@@ -45,7 +44,7 @@ readConfig = (cb) ->
 		verbose "Finished reading config...", configFile, _err_text
 		_reading = false
 		cb?(null, true)
-	try config_lines = String(Fs.readFileSync configFile).split("\n")
+	try config_lines = String(Fs.readFileSync expandPath configFile).split("\n")
 	catch err
 		_err_text = "(empty config file)"
 		done()
@@ -54,12 +53,10 @@ readConfig = (cb) ->
 		try
 			line = config_lines.shift()
 			return next() if line.length is 0
-			line = line.replace(/%/g, basePath)
 			echo line
 			cmd = parseArguments(line)
 			if (_cmd  = cmd._[0]) of Actions
 				msg = Actions[_cmd].toMessage(cmd)
-				echo "Calling #{_cmd}:onMessage with next =", (typeof next)
 				Actions[_cmd].onMessage msg, null, next
 			else next()
 		catch err

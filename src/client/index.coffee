@@ -2,7 +2,7 @@
 
 { $, cmd, echo, warn, verbose } = require '../common'
 Fs = require 'fs'
-{ exists, socketFile, configFile, createBasePath } = require '../files'
+{ exists, socketFile, configFile, createBasePath, expandPath } = require '../files'
 Daemon = require '../daemon'
 
 if cmd.help or cmd.h
@@ -14,15 +14,16 @@ exit_soon = (code=0, ms=100) =>
 
 doInit = (cb) ->
 	defaultsFile = process.cwd() + "/.shepherd/defaults"
-	verbose "Checking for defaults file:", defaultsFile
 	if exists(configFile) and not (cmd.f or cmd.force)
 		echo "Configuration already exists (#{configFile})"
-		cb?()
-	else if exists(defaultsFile)
-		echo "Applying default config..."
-		Fs.copyFile defaultsFile, configFile, cb
+		cb?(null, false)
 	else
-		createBasePath ".", cb
+		verbose "Checking for defaults file:", defaultsFile
+		if exists(defaultsFile)
+			echo "Applying default config..."
+			Fs.copyFile expandPath(defaultsFile), expandPath(configFile), (err) => cb?(null, true)
+		else
+			createBasePath ".", cb
 	null
 
 sendServerCmd = (_cmd, cb) =>
@@ -38,7 +39,7 @@ sendServerCmd = (_cmd, cb) =>
 
 	do retryConnect = ->
 		connectStart = Date.now()
-		socket = Net.connect path: socketFile
+		socket = Net.connect path: expandPath socketFile
 		socket.on 'close', => cb?()
 		socket.on 'error', (err) -> # probably daemon is not running, should start it
 			if err.code is 'ENOENT'

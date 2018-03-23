@@ -12,7 +12,9 @@ Output = require './output'
 { pidFile,
 	socketFile,
 	outputFile,
-	configFile } = require '../files'
+	configFile,
+	basePath,
+	expandPath } = require '../files'
 { readConfig } = require '../util/config'
 ChildProcess = require 'child_process'
 
@@ -26,7 +28,7 @@ unless 'HOME' of process.env
 	return exit_soon 1
 
 readPid = ->
-	try parseInt Fs.readFileSync(pidFile).toString(), 10
+	try parseInt Fs.readFileSync(expandPath pidFile).toString(), 10
 	catch then undefined
 
 handleMessage = (msg, client, cb) ->
@@ -41,7 +43,7 @@ handleMessage = (msg, client, cb) ->
 				msg.g = msg.auto
 	Actions[msg.c]?.onMessage? msg, client, cb
 
-exists = (path) -> try (stat = Fs.statSync path).isFile() or stat.isSocket() catch then false
+exists = (path) -> try (stat = Fs.statSync expandPath path).isFile() or stat.isSocket() catch then false
 
 doStop = (exit) ->
 	if pid = readPid()
@@ -50,8 +52,8 @@ doStop = (exit) ->
 		# then kill the pid from the pid file (our own?)
 		result = Shell.exec "kill #{pid}", { silent: true, async: false } # use Shell.exec for easier stderr peek after
 		if result.stderr.indexOf("No such process") > -1
-			try Fs.unlinkSync(pidFile)
-			try Fs.unlinkSync(socketFile)
+			try Fs.unlinkSync(expandPath pidFile)
+			try Fs.unlinkSync(expandPath socketFile)
 	echo "Status: offline."
 	if exit
 		return exit_soon 0
@@ -72,12 +74,14 @@ runDaemon = => # in the foreground
 	if exists(socketFile)
 		return die "Socket file still exists:" + socketFile
 
-	Fs.writeFile pidFile, process.pid, (err) =>
+	_pidFile = expandPath pidFile
+	_socketFile = expandPath socketFile
+	Fs.writeFile _pidFile, process.pid, (err) =>
 		if err then return die "Failed to write pid file:", err
 		Output.setOutput outputFile, (err) =>
 			if err then return die "Failed to set output file:", err
 			echo "Opening master socket...", socketFile
-			socket = Net.Server().listen path: socketFile
+			socket = Net.Server().listen path: _socketFile
 			socket.on 'error', (err) ->
 				echo "Failed to open local socket:", $.debugStack err
 				return exit_soon 1
@@ -95,14 +99,14 @@ runDaemon = => # in the foreground
 						for k,v of msg when v? then _msg[k] = v
 						echo "Command handled:", _msg, "in", (Date.now() - start), "ms"
 			shutdown = (signal) -> ->
-				echo "Shutting down...", signal
-				try Fs.unlinkSync(pidFile)
+				try echo "Shutting down...", signal
 				try socket.close()
-				Groups.forEach (group) ->
+				Groups.forEach (group) -> # TODO: Groups.shutdown()
 					for proc in group
 						proc.expected = false
 					null
 				Groups.forEach (group) -> group.stop()
+				try Fs.unlinkSync(_pidFile)
 				if signal isnt 'exit'
 					return exit_soon 0
 				null
@@ -116,6 +120,7 @@ doStart = (exit) => # launch the daemon in the background and exit
 	_cmd = process.argv.slice(0,2).join(' ')
 		.replace("client/index","daemon/index") +
 		" daemon" +
+		" --base \"#{basePath.replace /\/.shepherd$/,''}\"" +
 		(if cmd.verbose then " --verbose" else "") +
 		(if cmd.quiet then " --quiet" else "")
 	devNull = Fs.openSync "/dev/null", 'a+'

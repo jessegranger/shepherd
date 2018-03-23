@@ -10,7 +10,7 @@ SlimProcess = require './util/process-slim'
 ChildProcess = require 'child_process'
 int = (n) -> parseInt((n ? 0), 10)
 { yesNo, formatUptime, trueFalse } = require "./format"
-{ configFile } = require "./files"
+{ configFile, exists, nginxTemplate, expandPath } = require "./files"
 saveConfig = null
 
 healthSymbol = (v) -> switch v
@@ -241,8 +241,8 @@ Object.assign module.exports, { Actions: {
 				Output.setOutput null, (err, acted) => acted and send msg.d
 			if msg.p
 				outputFile = Output.getOutputFile()
-				if File.exists(outputFile)
-					ChildProcess.spawn("echo Log purged at `date`> #{outputFile}", { shell: true }).on 'exit', => send msg.p
+				if exists(outputFile)
+					ChildProcess.spawn("echo Log purged at `date`> #{expandPath outputFile}", { shell: true }).on 'exit', => send msg.p
 			if client?
 				if msg.l
 					send Output.getOutputFile()
@@ -377,9 +377,9 @@ Object.assign module.exports, { Actions: {
 		onMessage: (msg, client, cb) ->
 			reply = (m, ret) ->
 				if ret
-					# client?.write $.TNET.stringify m
+					client?.write $.TNET.stringify m
 					saveConfig?()
-				cb? m, ret
+				cb? (not ret and m or null), ret
 				ret
 			if msg.g?
 				if not Groups.has(msg.g)
@@ -390,11 +390,11 @@ Object.assign module.exports, { Actions: {
 				if msg.n?
 					group.public_name = msg.n
 				if msg.sc?
-					unless File.exists(msg.sc)
+					unless exists(msg.sc)
 						return reply "ssl_cert file '#{msg.sc}' does not exist.", false
 					group.ssl_cert = msg.sc
 				if msg.sk?
-					unless File.exists(msg.sk)
+					unless exists(msg.sk)
 						return reply "ssl_key file '#{msg.sk}' does not exist.", false
 					group.ssl_key = msg.sc
 				return reply "Group updated.", true
@@ -404,7 +404,17 @@ Object.assign module.exports, { Actions: {
 
 			if msg.f?.length then Nginx.setFile(msg.f)
 			if msg.r?.length then Nginx.setReload(msg.r)
-			if msg.e then Nginx.setDisabled false
+			if msg.e
+				Nginx.setDisabled false
+				if not exists(nginxTemplate)
+					bytes = Nginx.defaults.templateText
+					Fs.writeFile expandPath(nginxTemplate), bytes, (err, written) =>
+						if err
+							warn err
+						else if written isnt bytes.length
+							warn "Only wrote #{written} out of #{bytes.length} to #{nginxTemplate}"
+						else
+							echo "Wrote default content to #{nginxTemplate}"
 			if msg.d then Nginx.setDisabled true
 			saveConfig?()
 			return reply "nginx configuration updated.", true
@@ -419,10 +429,10 @@ Object.assign module.exports, { Actions: {
 		toMessage: (cmd) -> { c: 'config', p: (trueFalse cmd.purge), l: (trueFalse cmd.list) }
 		onMessage: (msg, client, cb) ->
 			if msg.p
-				Fs.writeFile configFile, "", cb
+				Fs.writeFile expandPath(configFile), "", cb
 				client?.write $.TNET.stringify "Cleared log file."
 			else if msg.l
-				Fs.readFile configFile, (err, data) ->
+				Fs.readFile expandPath(configFile), (err, data) ->
 					return if err
 					client?.write $.TNET.stringify String(data)
 			else

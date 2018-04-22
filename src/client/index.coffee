@@ -5,8 +5,28 @@ Fs = require 'fs'
 { exists, socketFile, configFile, createBasePath, expandPath } = require '../files'
 Daemon = require '../daemon'
 
-if cmd.help or cmd.h
+if cmd.help or cmd.h or cmd._[0] is 'help'
 	console.log "shepherd <start|stop|restart|status|add|remove|enable|disable>"
+	if cmd.verbose then console.log """
+
+		- start [id] : start an instance, group, or all (if no id given)
+		- stop [id] : stop an instance, group, or all (if no id given)
+		- restart [id] : restart an instance, group, or all (if no id given)
+		- status : report status of everything
+		- add [name] [--cd 'path'] <--exec 'command'> [--count n] [--port p] : adds a new process group
+		  --cd 'path' - Optional, working directory of processes in the group.
+		  --exec 'command' - Required. The shell command to execute, will be parsed by /bin/sh.
+		  --count N - Optional. Number of processes to spawn. Default 1.
+		  --port P - Optional. Assign the PORT environment variable for each process, incrementing from P.
+		    A process given --port is "started" only when it starts listening on the proper PORT.
+		- remove [name] : remove a process group
+		- enable [id] : enable a group or single process
+		- disable [id] : disable a group or single process
+
+		e.g. 'shep add mygroup --cd test --exec "node app.js" --count 3 --port 1080'
+		e.g. 'shep disable mygroup-2' # just disable the 3rd member of the group
+
+	"""
 	process.exit 0
 
 exit_soon = (code=0, ms=100) =>

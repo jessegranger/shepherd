@@ -2,11 +2,13 @@
 Fs = require 'fs'
 ChildProcess = require 'child_process'
 
-expandPath = (s) => s.replace(/^~/, process.env.HOME).replace(/^%/, basePath)
+expandPath = (s) => s?.replace(/^~/, process.env.HOME).replace(/^%/, basePath)
 
 exists = (p) =>
 	try
-		Fs.accessSync(expandPath p, Fs.constants.R_OK)
+		p = expandPath p
+		return false unless p?
+		Fs.accessSync(p, Fs.constants.R_OK)
 		return true
 	return false
 
@@ -17,6 +19,7 @@ seekForBasePath = =>
 		if exists path
 			return path
 		paths.pop()
+	null
 
 if "SHEPHERD_HOME" of process.env
 	basePath = process.env.SHEPHERD_HOME

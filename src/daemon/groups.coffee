@@ -28,6 +28,17 @@ class Group extends Array
 		for i in [0...@n] by 1
 			@push createProcess @, i
 		@monitors = Object.create null # used later by health checks
+		@enabled = true
+	enable: (cb) ->
+		acted = not @enabled
+		@enabled = true
+		if acted then @actOnAll 'enable', cb
+		else cb?()
+	disable: (cb) ->
+		acted = @enabled
+		@enabled = false
+		if acted then @actOnAll 'disable', cb
+		else cb?()
 	scale: (n, cb) ->
 		dn = n - @n
 		progress = $.Progress dn
@@ -36,7 +47,10 @@ class Group extends Array
 			echo "[scale(#{n})] Adding #{dn} instances..."
 			for d in [0...dn] by 1
 				p = createProcess @, @n++
-				p.start => progress.finish 1
+				if @enabled
+					p.start => progress.finish 1
+				else
+					p.disable => progress.finish 1
 				@push p
 		else if dn < 0
 			echo "[scale(#{n})] Trimming #{dn} instances..."
@@ -110,7 +124,7 @@ class Proc
 	start: (cb) -> # cb called with a 'started' flag that indicates if any work was done
 		done = (err, ret) => cb?(err, ret); ret
 		if @started or not @enabled
-			verbose "Not starting because", @started, @enabled
+			verbose "Not starting because", { @started, @enabled }
 			return done(null, false)
 		@expected = true
 		env = Object.assign {}, process.env, { PORT: @port }
@@ -252,8 +266,9 @@ class Proc
 	disable: (cb) ->
 		acted = @started or @enabled
 		@enabled = false
-		if acted then @stop => @statusString = "disabled"; cb?()
-		else cb?()
+		_end = => @statusString = "disabled"; cb?()
+		if acted then @stop _end
+		else _end()
 		acted
 
 actOnInstance = (method, instanceId, cb) ->

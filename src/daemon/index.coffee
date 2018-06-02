@@ -24,7 +24,7 @@ die = (msg...) ->
 	exit_soon 1
 
 unless 'HOME' of process.env
-	echo "No $HOME in environment, can't place .shepherd directory."
+	echo "No $HOME in environment, can't place .shep directory."
 	return exit_soon 1
 
 readPid = ->
@@ -120,7 +120,7 @@ doStart = (exit) => # launch the daemon in the background and exit
 	_cmd = process.argv.slice(0,2).join(' ')
 		.replace("client/index","daemon/index") +
 		" daemon" +
-		" --base \"#{basePath.replace /\/.shepherd$/,''}\"" +
+		" --base \"#{basePath.replace /\/.shep$/,''}\"" +
 		(if cmd.verbose then " --verbose" else "") +
 		(if cmd.quiet then " --quiet" else "")
 	devNull = Fs.openSync "/dev/null", 'a+'

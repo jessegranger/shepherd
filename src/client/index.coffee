@@ -31,7 +31,7 @@ if cmd.help or cmd.h or cmd._[0] is 'help'
 
 
 doInit = (cb) ->
-	defaultsFile = process.cwd() + "/.shepherd/defaults"
+	defaultsFile = process.cwd() + "/.shep/defaults"
 	if exists(configFile) and not (cmd.f or cmd.force)
 		echo "Configuration already exists (#{configFile})"
 		cb?(null, false)
@@ -46,7 +46,7 @@ doInit = (cb) ->
 
 sendServerCmd = (_cmd, cb) =>
 	unless exists(basePath)
-		return echo "No .shepherd directory found."
+		return echo "No .shep directory found."
 	unless exists(socketFile)
 		return echo "Status: offline."
 

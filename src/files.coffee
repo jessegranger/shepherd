@@ -15,7 +15,7 @@ exists = (p) =>
 seekForBasePath = =>
 	paths = $(process.cwd().split '/')
 	while paths.length > 0
-		path = paths.join('/') + '/.shepherd'
+		path = paths.join('/') + '/.shep'
 		if exists path
 			return path
 		paths.pop()
@@ -25,14 +25,14 @@ if "SHEPHERD_HOME" of process.env
 	basePath = process.env.SHEPHERD_HOME
 else
 	if cmd.base?
-		basePath = cmd.base + "/.shepherd"
+		basePath = cmd.base + "/.shep"
 	else
 		basePath = seekForBasePath()
 exists(basePath) and verbose "Using", basePath
 
 createBasePath = (prefix, cb) =>
-	return ChildProcess.spawn("mkdir -p \"#{prefix}/.shepherd\"", { shell: true }).on 'exit', =>
-		echo "Created .shepherd folder..."
+	return ChildProcess.spawn("mkdir -p \"#{prefix}/.shep\"", { shell: true }).on 'exit', =>
+		echo "Created .shep folder..."
 		cb()
 
 makePath = (parts...) =>

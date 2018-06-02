@@ -1,8 +1,5 @@
 node_modules
 Makefile
-.vagrant
-.todo
-.vimrc
-.shepherd/*
+.*
 test/*
 src/*

@@ -431,12 +431,10 @@ Object.assign module.exports, { Actions: {
 			if msg.p
 				Fs.writeFile expandPath(configFile), "", cb
 				client?.write $.TNET.stringify "Cleared log file."
-			else if msg.l
+			else
 				Fs.readFile expandPath(configFile), (err, data) ->
 					return if err
 					client?.write $.TNET.stringify String(data)
-			else
-				client?.write $.TNET.stringify "Unknown option for 'config' command."
 			false
 		onResponse: echoResponse
 	}

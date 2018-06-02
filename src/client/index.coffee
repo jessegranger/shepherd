@@ -6,8 +6,8 @@ Fs = require 'fs'
 Daemon = require '../daemon'
 
 if cmd.help or cmd.h or cmd._[0] is 'help'
-	console.log "shepherd <start|stop|restart|status|add|remove|enable|disable>"
-	if cmd.verbose then console.log """
+	echo "shepherd <start|stop|restart|status|add|remove|enable|disable>"
+	if cmd.verbose then echo """
 
 		- start [id] : start an instance, group, or all (if no id given)
 		- stop [id] : stop an instance, group, or all (if no id given)
@@ -64,7 +64,6 @@ sendServerCmd = (_cmd, cb) =>
 		connectStart = Date.now()
 		socket = Net.connect path: expandPath socketFile
 		socket.on 'close', =>
-			console.log "socket.on 'close'"
 			cb?(null, true)
 		socket.on 'error', (err) => # probably daemon is not running, should start it
 			if err.code is 'ENOENT'
@@ -109,12 +108,9 @@ switch cmd._[0] # some commands get handled without connecting to the daemon
 	when 'up' then Daemon.doStart(false); $.delay 1000, => sendServerCmd 'status'
 	when 'down' then return Daemon.doStop(true)
 	else sendServerCmd cmd._[0], =>
-		console.log "One command done."
 		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale','replace']
 			setTimeout (=>
-				console.log "Sending status"
 				sendServerCmd 'status', =>
-					console.log "Done with status"
 					exit_soon 0
 			), 300
 		else exit_soon 0

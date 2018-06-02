@@ -4,4 +4,5 @@ lib
 test/*.pass
 static/index.js
 .shepherd
+.shep
 .vimrc

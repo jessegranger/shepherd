@@ -346,16 +346,17 @@ Object.assign module.exports, { Actions: {
 	# Configure nginx integration.
 	nginx: {
 		options: [
-			[ "--file <file>", "Auto-generate an nginx file with an upstream definition for each group."]
-			[ "--reload <cmd>", "What command to run in order to cause nginx to reload."]
+			[ "--enable", "Generate a config file and automatically reload nginx when state changes." ]
 			[ "--disable", "Don't generate files or reload nginx." ]
-			[ "--enable", "Generate a config file and reload nginx upon state changes." ]
+			[ "--file <file>", "Auto-generate an nginx file here using '.shep/nginx.template'."]
+			[ "--reload-cmd <cmd>", "What command to run in order to cause nginx to reload."]
+			[ "--reload-now", "Read nginx.template, write a fresh config file, and issue the reload cmd to nginx." ]
 
 			[ "--group <name>", "Optional. If given, the following options apply:" ]
-			[ "--port <n>", "Default 80 (or 443). 'server { listen <n>; }'" ]
-			[ "--name <hostname>", "Default is the group name. 'server { server_name <name>; }'" ]
-			[ "--ssl_cert <path>", "Optional. If given, port defaults to 443." ]
-			[ "--ssl_key <path>", "Optional. If given, port defaults to 443." ]
+			[ "  --port <n>", "Default 80 (or 443). 'server { listen <n>; }'" ]
+			[ "  --name <hostname>", "Default is the group name. 'server { server_name <name>; }'" ]
+			[ "  --ssl_cert <path>", "Optional. If given, port defaults to 443." ]
+			[ "  --ssl_key <path>", "Optional. If given, port defaults to 443." ]
 
 			[ "--list", "Show the current nginx configuration." ]
 
@@ -363,7 +364,7 @@ Object.assign module.exports, { Actions: {
 		toMessage: (cmd) -> {
 			c: 'nginx'
 			f: cmd.file
-			r: cmd.reload
+			r: cmd['reload-cmd']
 			k: cmd.keepalive
 			d: (trueFalse cmd.disable)
 			e: (trueFalse cmd.enable)
@@ -373,6 +374,7 @@ Object.assign module.exports, { Actions: {
 			n: cmd.name
 			sc: cmd.ssl_cert
 			sk: cmd.ssl_key
+			rn: (trueFalse cmd['reload-now'])
 		}
 		onMessage: (msg, client, cb) ->
 			reply = (m, ret) ->
@@ -381,6 +383,11 @@ Object.assign module.exports, { Actions: {
 					saveConfig?()
 				cb? (not ret and m or null), ret
 				ret
+
+			if msg.rn?
+				Nginx.sync()
+				return reply "writing nginx config", true
+
 			if msg.g?
 				if not Groups.has(msg.g)
 					return reply "No such group.", false
@@ -402,10 +409,11 @@ Object.assign module.exports, { Actions: {
 			if msg.l?
 				return reply Nginx.toConfig(), false
 
-			if msg.f?.length then Nginx.setFile(msg.f)
-			if msg.r?.length then Nginx.setReload(msg.r)
+			acted = 0
+			if msg.f?.length then ++acted and Nginx.setFile(msg.f)
+			if msg.r?.length then ++acted and Nginx.setReload(msg.r)
 			if msg.e
-				Nginx.setDisabled false
+				++acted and Nginx.setDisabled false
 				if not exists(nginxTemplate)
 					bytes = Nginx.defaults.templateText
 					Fs.writeFile expandPath(nginxTemplate), bytes, (err, written) =>
@@ -415,9 +423,12 @@ Object.assign module.exports, { Actions: {
 							warn "Only wrote #{written} out of #{bytes.length} to #{nginxTemplate}"
 						else
 							echo "Wrote default content to #{nginxTemplate}"
-			if msg.d then Nginx.setDisabled true
-			saveConfig?()
-			return reply "nginx configuration updated.", true
+			if msg.d then ++acted and Nginx.setDisabled true
+			if acted > 0
+				saveConfig?()
+				return reply "nginx configuration updated.", true
+			else
+				return reply "nginx - no actions requested.", false
 		onResponse: echoResponse
 	}
 

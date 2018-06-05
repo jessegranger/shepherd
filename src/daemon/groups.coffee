@@ -29,6 +29,7 @@ class Group extends Array
 			@push createProcess @, i
 		@monitors = Object.create null # used later by health checks
 		@enabled = true
+		# @public_port, @public_name, @ssl_cert, and @ssl_key can all be set here from src/daemon/nginx
 	enable: (cb) ->
 		acted = not @enabled
 		@enabled = true

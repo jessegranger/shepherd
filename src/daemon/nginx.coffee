@@ -71,8 +71,7 @@ writeNginxFile = (cb) =>
 		if err
 			warn "Failed to read nginx template:", err
 			return cb?(null, false)
-		t = Handlebars.compile data.toString('utf8')
-		text = generate(t)
+		text = generate Handlebars.compile data.toString('utf8')
 		verbose "Saving nginx file...", Files.nginxFile
 		Fs.writeFile expandPath(Files.nginxFile), text, (err) ->
 			verbose "writeNginxFile took #{Date.now() - start} ms"

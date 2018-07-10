@@ -8,7 +8,7 @@ ROOT=$(pwd)/test
 # echo TEMP_PATH $TEMP_PATH
 
 function mkdeploy() {
-	rm -rf "$TEMP_PATH/node_modules" "$TEMP_PATH/.shepherd" "$TEMP_PATH/*.js"
+	rm -rf "$TEMP_PATH/node_modules" "$TEMP_PATH/.shep" "$TEMP_PATH/*.js"
 	mkdir "$TEMP_PATH/node_modules" \
 		&& mkdir "$TEMP_PATH/node_modules/.bin" \
 		&& ln -sf "$START_PATH" "$TEMP_PATH/node_modules/the-shepherd" \
@@ -46,7 +46,7 @@ function check_init() {
 function check_up() {
 	# printf ' up('
 	shep up | grep -q "Starting"
-	check [ "$?" -eq 0 -a -e "$TEMP_PATH/.shepherd/socket" -a -e "$TEMP_PATH/.shepherd/pid" -a -e "$TEMP_PATH/.shepherd/log" ]
+	check [ "$?" -eq 0 -a -e "$TEMP_PATH/.shep/socket" -a -e "$TEMP_PATH/.shep/pid" -a -e "$TEMP_PATH/.shep/log" ]
 	# shep log --tail &
 	# printf ' )'
 }

@@ -5,21 +5,21 @@ ROOT=$(pwd)/test
 source $ROOT/common.sh
 
 describe "init"
-if it "$*" "should create a .shepherd folder"; then
+if it "$*" "should create a .shep folder"; then
 	cd $(mkdeploy)
 	check [ "$?" -eq 0 ]
 	shep init > /dev/null
-	check [ -d "$TEMP_PATH/.shepherd" ]
+	check [ -d "$TEMP_PATH/.shep" ]
 	pass
 fi
 
-if it "$*" "should copy a .shepherd/defaults file"; then
+if it "$*" "should copy a .shep/defaults file"; then
 	cd $(mkdeploy)
 	check [ -n "$TEMP_PATH" -a -d "$TEMP_PATH" ]
-	mkdir -p "$TEMP_PATH/.shepherd/"
-	echo "xyzzy" > "$TEMP_PATH/.shepherd/defaults"
+	mkdir -p "$TEMP_PATH/.shep/"
+	echo "xyzzy" > "$TEMP_PATH/.shep/defaults"
 	shep init > /dev/null
-	check [ `cat "$TEMP_PATH/.shepherd/config"` = "xyzzy" ]
+	check [ `cat "$TEMP_PATH/.shep/config"` = "xyzzy" ]
 	pass
 fi
 
@@ -36,8 +36,8 @@ if it "$*" 'can add and start from the config'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js $$"
 	check_down
@@ -77,7 +77,7 @@ if it "$*" 'should list - unstarted'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
 	check_up
 	OUTPUT=$(shep status)
 	check [ "$?" -eq 0 ]
@@ -97,8 +97,8 @@ if it "$*" 'should list - started'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js $$"
 	OUTPUT=$(shep status)
@@ -120,8 +120,8 @@ if it "$*" 'should stop - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js $$"
 	shep stop | grep -q "Stopping everything"
@@ -134,9 +134,9 @@ if it "$*" 'should stop - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js A $$"
 	check_process "echo_server.js B $$"
@@ -156,8 +156,8 @@ if it "$*" 'should stop - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 2 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group test --exec 'node echo_server.js $$' --count 2 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js $$"
 	shep stop --instance test-1 | grep -q "Stopping instance test-1"
@@ -175,8 +175,8 @@ if it "$*" 'should start - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
 	check_up
 	shep start | grep -q "Starting everything"
 	check [ "$?" -eq 0 ]
@@ -191,8 +191,8 @@ if it "$*" 'should start - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
 	check_up
 	shep start --group testA | grep -q "Starting group testA"
 	check [ "$?" -eq 0 ]
@@ -210,7 +210,7 @@ if it "$*" 'should start - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "add --group test --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shep/config"
 	check_up
 	shep start --instance test-1 | grep -q "Starting instance test-1"
 	check [ "$?" -eq 0 ]
@@ -229,7 +229,7 @@ if it "$*" 'should keep instance up if it dies'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shepherd/config"
+	echo "add --group test --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shep/config"
 	check_up
 	shep start --instance test-1 | grep -q "Starting instance test-1"
 	check [ "$?" -eq 0 ]
@@ -251,8 +251,8 @@ if it "$*" 'should handle an instant crashing process'; then
 	check_init
 	echo "process.exit(1)" > server.js
 	echo "$echo_server" > echo_server.js
-	echo "add --group crash --exec 'node server.js $$' --count 1" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group echo --exec 'node echo_server.js $$' --count 2" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group crash --exec 'node server.js $$' --count 1" > "$TEMP_PATH/.shep/config"
+	echo "add --group echo --exec 'node echo_server.js $$' --count 2 --port 9011" >> "$TEMP_PATH/.shep/config"
 	check_up
 	shep start --instance crash-0 | grep -q "Starting instance crash-0"
 	check [ "$?" -eq 0 ]
@@ -275,9 +275,9 @@ if it "$*" 'should disable - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js A $$"
 	check_process "echo_server.js B $$"
@@ -297,9 +297,9 @@ if it "$*" 'should disable - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js A $$"
 	check_process "echo_server.js B $$"
@@ -323,9 +323,9 @@ if it "$*" 'should disable - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	check_process "echo_server.js A $$"
 	check_process "echo_server.js B $$"
@@ -355,9 +355,9 @@ if it "$*" 'start on a disabled instance does nothing'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "disable --group testA" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "disable --group testA" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	shep status | grep "testA-0" | grep -q " disabled"
 	check [ "$?" -eq 0 ]
@@ -375,10 +375,10 @@ if it "$*" 'should enable - everything'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
-	echo "disable" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
+	echo "disable" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	shep status | grep "testA-0" | grep -q " disabled"
 	check [ "$?" -eq 0 ]
@@ -401,10 +401,10 @@ if it "$*" 'should enable - groups'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
-	echo "disable" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
+	echo "disable" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	shep enable --group testA | grep -q "Enabling group testA"
 	check [ "$?" -eq 0 ]
@@ -426,10 +426,10 @@ if it "$*" 'should enable - instances'; then
 	cd $(mkdeploy)
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group testA --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shepherd/config"
-	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shepherd/config"
-	echo "disable --group testA" >> "$TEMP_PATH/.shepherd/config"
-	echo "start" >> "$TEMP_PATH/.shepherd/config"
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 3 --port 9011" > "$TEMP_PATH/.shep/config"
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> "$TEMP_PATH/.shep/config"
+	echo "disable --group testA" >> "$TEMP_PATH/.shep/config"
+	echo "start" >> "$TEMP_PATH/.shep/config"
 	check_up
 	shep enable --instance testA-1 | grep -q "Enabling instance testA-1"
 	check [ "$?" -eq 0 ]

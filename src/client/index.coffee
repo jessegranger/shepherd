@@ -29,6 +29,9 @@ if cmd.help or cmd.h or cmd._[0] is 'help'
 	"""
 	process.exit 0
 
+startupTimeout = 1000 # how long to wait after issuing an 'up' before inquiring with 'status'
+readTimeout = 3000 # how long to wait for a response, to any command
+retryTimeout = 3000 # if
 
 doInit = (cb) ->
 	defaultsFile = process.cwd() + "/.shep/defaults"
@@ -69,7 +72,7 @@ sendServerCmd = (_cmd, cb) =>
 			if err.code is 'ENOENT'
 				if _cmd is 'start'
 					Daemon.doStart(false)
-					setTimeout retryConnect, 3000
+					setTimeout retryConnect, retryTimeout
 				else
 					echo "Status: offline."
 					exit_soon 1
@@ -90,7 +93,7 @@ sendServerCmd = (_cmd, cb) =>
 			socket.write bytes, =>
 				action.onConnect?(socket)
 				if 'onResponse' of action
-					timeout = $.delay 1000, =>
+					timeout = $.delay readTimeout, =>
 						warn "Timed-out waiting for a response from the daemon."
 						socket.end()
 					Tnet.read_stream socket, (item) =>
@@ -105,7 +108,7 @@ sendServerCmd = (_cmd, cb) =>
 
 switch cmd._[0] # some commands get handled without connecting to the daemon
 	when 'init' then return doInit exit_soon
-	when 'up' then Daemon.doStart(false); $.delay 1000, => sendServerCmd 'status'
+	when 'up' then Daemon.doStart(false); $.delay startupTimeout, => sendServerCmd 'status'
 	when 'down' then return Daemon.doStop(true)
 	else sendServerCmd cmd._[0], =>
 		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale','replace']

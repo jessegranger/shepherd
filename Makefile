@@ -1,10 +1,11 @@
-JS_FILES=$(shell find src -name \*.coffee | sed -e 's/src/lib/' -e 's/\.coffee/.js/')
+SRC_FILES=$(subst src/,lib/,$(wildcard src/*/*.coffee))
+JS_FILES=$(SRC_FILES:.coffee=.js)
 
 all: $(JS_FILES)
 
 lib/%.js: src/%.coffee
 	# Compiling $<...
-	@(o=`dirname $< | sed -e 's/src/lib/'` && \
+	@(o=`dirname $@` && \
 		mkdir -p $$o && \
 		coffee -o $$o -c $<)
 

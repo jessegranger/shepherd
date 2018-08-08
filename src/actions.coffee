@@ -4,19 +4,13 @@ Fs = require 'fs'
 Tnet = require './util/tnet'
 Chalk = require 'chalk'
 Nginx = require './daemon/nginx'
-Health = require './daemon/health'
 Output = require './daemon/output'
 SlimProcess = require './util/process-slim'
 ChildProcess = require 'child_process'
 int = (n) -> parseInt((n ? 0), 10)
-{ yesNo, formatUptime, trueFalse } = require "./format"
+{ yesNo, trueFalse } = require "./format"
 { configFile, exists, nginxTemplate, expandPath } = require "./files"
 saveConfig = null
-
-healthSymbol = (v) -> switch v
-	when undefined then Chalk.yellow "?"
-	when true then Chalk.green "\u2713"
-	when false then Chalk.red "x"
 
 { Groups, addGroup, removeGroup, simpleAction } = require "./daemon/groups"
 
@@ -117,63 +111,8 @@ Object.assign module.exports, { Actions: {
 	reload: _restart_action # alias
 
 	# Get the status of everything.
-	status: statusAction = {
-		toMessage: (cmd) -> { c: 'status' }
-		onResponse: (resp, socket) ->
-			try
-				if not socket?
-					return console.log "Socket: null."
-				if not ( resp? and ('object' is typeof resp) and ('groups' of resp) )
-					return console.log "Response:", resp
-
-				console.log "Status: online, pid: #{resp.pid} net: (#{socket._connectLatency}ms, #{resp.send - resp.start}ms, #{Date.now() - resp.send}ms)"
-				console.log "Groups: #{resp.groups.length}"
-
-				pad_columns = (a,w=[19, 7, 7, 10, 8, 8, 14, 7, 7]) ->
-					(($.padLeft String(item ? ''), w[i]) for item,i in a ).join ''
-
-				for group,g in resp.groups
-					if g is 0
-						console.log pad_columns ["Instance", "PID", "Port", "Uptime", "Healthy", "Enabled", "Status", "CPU", "RAM"]
-					else
-						console.log pad_columns ["--------", "---", "----", "------", "-------", "-------", "------", "---", "---"]
-					for line,i in group.procs
-						has_pid = line[1]?
-						line[1] ?= Chalk.red "-"
-						line[2] ?= Chalk.red "-"
-						line[3] = formatUptime line[3]
-						line[4] = has_pid and (healthSymbol line[4]) or line[1]
-						line[5] = healthSymbol(line[5])
-						line[7] = has_pid and (parseFloat(line[7]).toFixed(1) + "%") or line[1]
-						line[8] = has_pid and ($.commaize(Math.round(line[8]/1024)) + "mb") or line[1]
-						console.log pad_columns line
-				socket.end()
-			finally
-				socket?.end()
-
-		onMessage: (msg, client, cb) ->
-			output = {
-				start: Date.now()
-				pid: process.pid
-				groups: []
-			}
-			SlimProcess.getProcessTable (err, procs) => # force the cache to be fresh
-				if err then return cb?(err, false)
-				Groups.forEach (group) ->
-					output.groups.push _group = { name: group.name, cd: group.cd, exec: group.exec, n: group.n, port: group.port, grace: group.grace, procs: [] }
-					for proc in group
-						pid = proc.proc?.pid
-						pcpu = rss = 0
-						if pid?
-							SlimProcess.visitProcessTree pid, (_p) ->
-								pcpu += _p.pcpu
-								rss += _p.rss
-						_group.procs.push [ proc.id, proc.proc?.pid, proc.port, proc.uptime, proc.healthy, proc.enabled, proc.statusString, pcpu, rss ]
-				output.send = Date.now()
-				client.write $.TNET.stringify output
-				cb? null, true
-			return false
-	}
+	status: statusAction = require "./actions/status"
+	stats: statusAction
 	stat: statusAction
 
 	# Disable a group or instance.
@@ -279,158 +218,10 @@ Object.assign module.exports, { Actions: {
 	}
 
 	# Add/remove a health check.
-	health: {
-		options: [
-			[ "--group <group>", "Check all processes in this group." ]
-			[ "--path <path>", "Will request http://localhost:port/<path> and check the response." ]
-			[ "--status <code>", "Check the status code of the response."]
-			[ "--contains <text>", "Check that the response contains some bit of text."]
-			[ "--interval <secs>", "How often to run a check." ]
-			[ "--timeout <ms>", "Fail if response is slower than this." ]
-			[ "--delete", "Remove a health check." ]
-			[ "--pause", "Temporarily pause a health check." ]
-			[ "--resume", "Resume a health check after pausing." ]
-			[ "--list", "List all current health checks." ]
-		]
-		toMessage: (cmd) -> {
-			c: 'health',
-			g: cmd.group,
-			p: cmd.path,
-			s:(int cmd.status),
-			v:(1000 * int cmd.interval),
-			o:(int cmd.timeout),
-			t: cmd.contains,
-			d:(trueFalse cmd.delete),
-			z:(trueFalse cmd.pause),
-			r:(trueFalse cmd.resume),
-			l: (trueFalse cmd.list)
-		}
-		onMessage: (msg, client, cb) ->
-			reply = (x, ret) -> client?.write $.TNET.stringify x; cb?(ret); ret
-			if msg.l # --list
-				return reply Health.toConfig(), false
-
-			unless 'g' of msg
-				return reply "Group is required.", false
-
-			if not Groups.has(msg.g)
-				return reply "No such group: #{msg.g}", false
-
-			if msg.d # --delete
-				Health.unmonitor Groups.get(msg.g)
-				return reply "Will stop monitoring #{msg.g}.", true
-
-			if msg.z # --pause
-				if Health.pause msg.g
-					return reply "Pausing monitor of #{msg.g}.", true
-				else
-					return reply "Group is not currently monitored.", false
-
-			if msg.r # --resume
-				if Health.resume msg.g
-					return reply "Resuming monitor of #{msg.g}.", true
-				else
-					return reply "Group does not have a resumable monitor.", false
-
-			unless 'p' of msg
-				return reply "--path is required when adding a monitor.", false
-
-			if Health.monitor Groups.get(msg.g), msg.p, msg.v, msg.s, msg.t, msg.o
-				return reply "Adding monitor for #{msg.g}.", true
-			else
-				return reply "Did not add monitor.", false
-
-		onResponse: echoResponse
-	}
+	health: require './actions/health'
 
 	# Configure nginx integration.
-	nginx: {
-		options: [
-			[ "--enable", "Generate a config file and automatically reload nginx when state changes." ]
-			[ "--disable", "Don't generate files or reload nginx." ]
-			[ "--file <file>", "Auto-generate an nginx file here using '.shep/nginx.template'."]
-			[ "--reload-cmd <cmd>", "What command to run in order to cause nginx to reload."]
-			[ "--reload-now", "Read nginx.template, write a fresh config file, and issue the reload cmd to nginx." ]
-
-			[ "--group <name>", "Optional. If given, the following options apply:" ]
-			[ "  --port <n>", "Default 80 (or 443). 'server { listen <n>; }'" ]
-			[ "  --name <hostname>", "Default is the group name. 'server { server_name <name>; }'" ]
-			[ "  --ssl_cert <path>", "Optional. If given, port defaults to 443." ]
-			[ "  --ssl_key <path>", "Optional. If given, port defaults to 443." ]
-
-			[ "--list", "Show the current nginx configuration." ]
-
-		]
-		toMessage: (cmd) -> {
-			c: 'nginx'
-			f: cmd.file
-			r: cmd['reload-cmd']
-			k: cmd.keepalive
-			d: (trueFalse cmd.disable)
-			e: (trueFalse cmd.enable)
-			l: cmd.list
-			g: cmd.group
-			p: cmd.port
-			n: cmd.name
-			sc: cmd.ssl_cert
-			sk: cmd.ssl_key
-			rn: (trueFalse cmd['reload-now'])
-		}
-		onMessage: (msg, client, cb) ->
-			reply = (m, ret) ->
-				if ret
-					client?.write $.TNET.stringify m
-					saveConfig?()
-				cb? (not ret and m or null), ret
-				ret
-
-			if msg.rn?
-				Nginx.sync()
-				return reply "writing nginx config", true
-
-			if msg.g?
-				if not Groups.has(msg.g)
-					return reply "No such group.", false
-				group = Groups.get(msg.g)
-				if msg.p?
-					group.public_port = parseInt(msg.p, 10)
-				if msg.n?
-					group.public_name = msg.n
-				if msg.sc?
-					unless exists(msg.sc)
-						return reply "ssl_cert file '#{msg.sc}' does not exist.", false
-					group.ssl_cert = msg.sc
-				if msg.sk?
-					unless exists(msg.sk)
-						return reply "ssl_key file '#{msg.sk}' does not exist.", false
-					group.ssl_key = msg.sc
-				return reply "Group updated.", true
-
-			if msg.l?
-				return reply Nginx.toConfig(), false
-
-			acted = 0
-			if msg.f?.length then ++acted and Nginx.setFile(msg.f)
-			if msg.r?.length then ++acted and Nginx.setReload(msg.r)
-			if msg.e
-				++acted and Nginx.setDisabled false
-				if not exists(nginxTemplate)
-					bytes = Nginx.defaults.templateText
-					Fs.writeFile expandPath(nginxTemplate), bytes, (err, written) =>
-						if err
-							warn err
-						else if written isnt bytes.length
-							warn "Only wrote #{written} out of #{bytes.length} to #{nginxTemplate}"
-						else
-							echo "Wrote default content to #{nginxTemplate}"
-			if msg.d then ++acted and Nginx.setDisabled true
-			if acted > 0
-				saveConfig?()
-				return reply "nginx configuration updated.", true
-			else
-				return reply "nginx - no actions requested.", false
-		onResponse: echoResponse
-	}
+	nginx: require './actions/nginx'
 
 	config: {
 		options: [

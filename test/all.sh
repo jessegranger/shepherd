@@ -237,10 +237,10 @@ if it "$*" 'should keep instance up if it dies'; then
 	check [ "$?" -eq 0 ]
 	kill `shep status | grep "test-1" | awk '{print $2}'`
 	check [ "$?" -eq 0 ]
-	sleep 2
+	sleep 4
 	shep status | grep "test-1" | grep -q " started"
 	check [ "$?" -eq 0 ]
-	shep status | grep "test-1" | grep -q " [0-2]s"
+	shep status | grep "test-1" | grep -q " [0-9]*s"
 	check [ "$?" -eq 0 ]
 	check_down
 	pass

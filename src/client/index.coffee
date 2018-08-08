@@ -29,9 +29,8 @@ if cmd.help or cmd.h or cmd._[0] is 'help'
 	"""
 	process.exit 0
 
-startupTimeout = 1000 # how long to wait after issuing an 'up' before inquiring with 'status'
 readTimeout = 3000 # how long to wait for a response, to any command
-retryTimeout = 3000 # if
+startupTimeout = 1000 # how long to wait after issuing an 'up' before inquiring with 'status'
 
 doInit = (cb) ->
 	defaultsFile = process.cwd() + "/.shep/defaults"
@@ -72,7 +71,7 @@ sendServerCmd = (_cmd, cb) =>
 			if err.code is 'ENOENT'
 				if _cmd is 'start'
 					Daemon.doStart(false)
-					setTimeout retryConnect, retryTimeout
+					setTimeout retryConnect, readTimeout
 				else
 					echo "Status: offline."
 					exit_soon 1

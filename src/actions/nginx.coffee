@@ -1,4 +1,6 @@
-$ = require 'bling'
+{ $, echo, warn, verbose } = require '../common'
+Fs = require 'fs'
+Nginx = require '../daemon/nginx'
 { Groups } = require '../daemon/groups'
 { trueFalse } = require '../format'
 { saveConfig } = require '../util/config'
@@ -44,7 +46,7 @@ Object.assign module.exports, {
 			cb? (not ret and m or null), ret
 			ret
 
-		if msg.rn?
+		if msg.rn
 			Nginx.sync()
 			return reply "writing nginx config", true
 
@@ -89,4 +91,5 @@ Object.assign module.exports, {
 			return reply "nginx configuration updated.", true
 		else
 			return reply "nginx - no actions requested.", false
+	onResponse: (resp, socket) -> console.log resp; socket.end()
 }

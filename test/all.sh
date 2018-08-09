@@ -453,3 +453,30 @@ if it "$*" 'should enable - instances'; then
 	pass
 fi
 
+describe 'nginx'
+if it "$*" 'should be able to --disable'; then
+	cd $(mkdeploy)
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "add --group test --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	check_up
+	shep nginx --disable | grep -q "nginx configuration updated"
+	check [ "$?" -eq 0 ]
+	grep -q "nginx --disable" "$TEMP_PATH/.shep/config"
+	check [ "$?" -eq 0 ]
+	check_down
+	pass
+fi
+
+if it "$*" 'should be able to --enable'; then
+	cd $(mkdeploy)
+	check_init
+	echo "add --group test --exec 'node echo_server.js A $$' --count 1 --port 9011" > "$TEMP_PATH/.shep/config"
+	check_up
+	shep nginx --enable| grep -q "nginx configuration updated"
+	check [ "$?" -eq 0 ]
+	grep -q "nginx --enable" "$TEMP_PATH/.shep/config"
+	check [ "$?" -eq 0 ]
+	check_down
+	pass
+fi

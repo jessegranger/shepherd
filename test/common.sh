@@ -44,11 +44,8 @@ function check_init() {
 	check [ "$?" -eq 0 ]
 }
 function check_up() {
-	# printf ' up('
 	shep up | grep -q "Starting"
 	check [ "$?" -eq 0 -a -e "$TEMP_PATH/.shep/socket" -a -e "$TEMP_PATH/.shep/pid" -a -e "$TEMP_PATH/.shep/log" ]
-	# shep log --tail &
-	# printf ' )'
 }
 function check_down() {
 	shep down | grep -q "Stopping"

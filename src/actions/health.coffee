@@ -64,5 +64,5 @@ Object.assign module.exports, {
 		else
 			return reply "Did not add monitor.", false
 
-	onResponse: (resp, socket) -> console.log "Daemon says:", resp; socket.end()
+	onResponse: (resp, socket) -> console.log resp; socket.end()
 }

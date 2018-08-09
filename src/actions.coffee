@@ -3,7 +3,6 @@
 Fs = require 'fs'
 Tnet = require './util/tnet'
 Chalk = require 'chalk'
-Nginx = require './daemon/nginx'
 Output = require './daemon/output'
 SlimProcess = require './util/process-slim'
 ChildProcess = require 'child_process'
@@ -21,7 +20,7 @@ required = (msg, key, label) ->
 		return warn "#{label} is required."
 	true
 
-echoResponse = (resp, socket) -> console.log "Daemon says:", resp; socket.end()
+echoResponse = (resp, socket) -> console.log resp; socket.end()
 
 Object.assign module.exports, { Actions: {
 

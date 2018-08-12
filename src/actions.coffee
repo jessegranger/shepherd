@@ -2,7 +2,6 @@
 { $, echo, warn, verbose } = require './common'
 Fs = require 'fs'
 Tnet = require './util/tnet'
-Chalk = require 'chalk'
 Output = require './daemon/output'
 SlimProcess = require './util/process-slim'
 ChildProcess = require 'child_process'

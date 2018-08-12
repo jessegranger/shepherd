@@ -106,6 +106,7 @@ sendServerCmd = (_cmd, cb) =>
 	null
 
 switch cmd._[0] # some commands get handled without connecting to the daemon
+	when 'version' then process.stdout.write String Fs.readFileSync "./VERSION"
 	when 'init' then return doInit exit_soon
 	when 'up' then Daemon.doStart(false); $.delay startupTimeout, => sendServerCmd 'status'
 	when 'down' then return Daemon.doStop(true)

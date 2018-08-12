@@ -99,8 +99,8 @@ reloadNginx = (cb) =>
 	return cb?(null, false) if disabled
 	echo "Reloading nginx..."
 	p = ChildProcess.exec(reload, { shell: true })
-	p.stdout.on 'data', (data) -> $.log "#{reload}", data.toString("utf8")
-	p.stderr.on 'data', (data) -> $.log "#{reload} (stderr)", data.toString("utf8")
+	p.stdout.on 'data', (data) -> echo "#{reload}", data.toString("utf8")
+	p.stderr.on 'data', (data) -> echo "#{reload} (stderr)", data.toString("utf8")
 	cb?(null, false)
 
 sync = (cb) =>

@@ -1,9 +1,9 @@
 #!/usr/bin/env coffee
 
-{ $, cmd, echo, warn, verbose, exit_soon } = require '../common'
 Fs = require 'fs'
-{ exists, socketFile, configFile, basePath, createBasePath, expandPath } = require '../files'
 Daemon = require '../daemon'
+{ $, cmd, echo, warn, verbose, exit_soon } = require '../common'
+{ exists, socketFile, configFile, basePath, createBasePath, expandPath } = require '../files'
 
 if cmd.help or cmd.h or cmd._[0] is 'help'
 	echo "shepherd <start|stop|restart|status|add|remove|enable|disable>"
@@ -107,13 +107,12 @@ sendServerCmd = (_cmd, cb) =>
 
 switch cmd._[0] # some commands get handled without connecting to the daemon
 	when 'version' then process.stdout.write String Fs.readFileSync "./VERSION"
-	when 'init' then return doInit exit_soon
+	when 'init' then return doInit (err) =>
+		err and warn err
+		exit_soon (if err then 1 else 0)
 	when 'up' then Daemon.doStart(false); $.delay startupTimeout, => sendServerCmd 'status'
 	when 'down' then return Daemon.doStop(true)
 	else sendServerCmd cmd._[0], =>
 		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale','replace']
-			setTimeout (=>
-				sendServerCmd 'status', =>
-					exit_soon 0
-			), 300
+			$.delay 300, => sendServerCmd 'status', => exit_soon 0
 		else exit_soon 0

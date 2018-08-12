@@ -3,7 +3,6 @@
 Path = require 'path'
 Nginx = null # placeholder for out of order import
 saveConfig = null
-Shell = require 'shelljs'
 ChildProcess = require 'child_process'
 SlimProcess = require '../util/process-slim'
 { exists } = require '../files'

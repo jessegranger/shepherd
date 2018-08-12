@@ -16,7 +16,6 @@
 		"bling": "^0.11.10",
 		"chalk": "latest",
 		"handlebars": "latest",
-		"shelljs": "latest",
-		"strip-ansi": "latest"
+		"shelljs": "latest"
 	}
 }

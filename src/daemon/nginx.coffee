@@ -65,6 +65,7 @@ generate = (t)=>
 
 writeNginxFile = (cb) =>
 	return cb?(null, false) if disabled
+	echo "Saving nginx file: #{Files.nginxFile}..."
 	start = Date.now()
 	verbose "Reading nginx template...", Files.nginxTemplate
 	Fs.readFile expandPath(Files.nginxTemplate), (err, data) ->
@@ -72,7 +73,7 @@ writeNginxFile = (cb) =>
 			warn "Failed to read nginx template:", err
 			return cb?(null, false)
 		text = generate Handlebars.compile data.toString('utf8')
-		verbose "Saving nginx file...", Files.nginxFile
+		verbose "Writing nginx file...", Files.nginxFile
 		Fs.writeFile expandPath(Files.nginxFile), text, (err) ->
 			verbose "writeNginxFile took #{Date.now() - start} ms"
 			cb?(err, not err?)
@@ -108,4 +109,3 @@ sync = (cb) =>
 		reloadNginx cb
 
 Object.assign module.exports, { writeNginxFile, reloadNginx, setReload, setTemplate, setFile, setDisabled, toConfig, sync, defaults }
-

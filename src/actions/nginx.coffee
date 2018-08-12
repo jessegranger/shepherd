@@ -79,12 +79,10 @@ Object.assign module.exports, {
 			if not exists(nginxTemplate)
 				bytes = Nginx.defaults.templateText
 				Fs.writeFile expandPath(nginxTemplate), bytes, (err, written) =>
-					if err
-						warn err
+					if err then warn err
 					else if written isnt bytes.length
 						warn "Only wrote #{written} out of #{bytes.length} to #{nginxTemplate}"
-					else
-						echo "Wrote default content to #{nginxTemplate}"
+					else echo "Wrote default content to #{nginxTemplate}"
 		if msg.d then ++acted and Nginx.setDisabled true
 		if acted
 			saveConfig?()

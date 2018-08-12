@@ -23,7 +23,7 @@ function describe() {
 }
 function it() {
 	if [ -z "$1" -o "$1" = "$2" ]; then
-		echo -n " * $* -"
+		echo -n " * $2 -"
 		return 0
 	else
 		return 1

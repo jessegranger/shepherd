@@ -518,17 +518,17 @@ if it "$*" 'should write nginx on status change'; then
 	# cat "$TEMP_PATH/.shep/log"
 	N="$TEMP_PATH/.shep/nginx"
 	check [ -e $N ]
-	grep -q 'test:www.example.com:8881::: 19011 19012' $N
+	grep -q 'test:www.example.com:8881:some_cert:some_key: 19011 19012' $N || cat $N
 	check [ "$?" -eq 0 ]
 	shep stop test-1 | grep -q "Stopping instance test-1"
 	check [ "$?" -eq 0 ]
 	sleep 1
-	grep -q 'test:www.example.com:8881::: 19011' $N
+	grep -q 'test:www.example.com:8881:some_cert:some_key: 19011' $N
 	check [ "$?" -eq 0 ]
 	shep start test-1 | grep -q "Starting instance test-1"
 	check [ "$?" -eq 0 ]
 	sleep 1
-	grep -q 'test:www.example.com:8881::: 19011 19012' $N
+	grep -q 'test:www.example.com:8881:some_cert:some_key: 19011 19012' $N
 	check [ "$?" -eq 0 ]
 	check_down
 	pass

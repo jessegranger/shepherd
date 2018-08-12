@@ -60,12 +60,12 @@ Object.assign module.exports, {
 				group.public_name = msg.n
 			if msg.sc?
 				unless exists(msg.sc)
-					return reply "ssl_cert file '#{msg.sc}' does not exist.", false
+					warn "ssl_cert file '#{msg.sc}' does not exist.", false
 				group.ssl_cert = msg.sc
 			if msg.sk?
 				unless exists(msg.sk)
-					return reply "ssl_key file '#{msg.sk}' does not exist.", false
-				group.ssl_key = msg.sc
+					warn "ssl_key file '#{msg.sk}' does not exist.", false
+				group.ssl_key = msg.sk
 			return reply "Group updated.", true
 
 		if msg.l?

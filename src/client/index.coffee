@@ -3,32 +3,10 @@
 Fs = require 'fs'
 Net = require 'net'
 Daemon = require '../daemon'
+{ Actions } = require '../actions'
 { $, cmd, echo, warn, verbose, exit_soon } = require '../common'
 { exists, socketFile, configFile, basePath, createBasePath, expandPath } = require '../files'
 
-if cmd.help or cmd.h or cmd._[0] is 'help'
-	echo "shepherd <start|stop|restart|status|add|remove|enable|disable>"
-	if cmd.verbose then echo """
-
-		- start [id] : start an instance, group, or all (if no id given)
-		- stop [id] : stop an instance, group, or all (if no id given)
-		- restart [id] : restart an instance, group, or all (if no id given)
-		- status : report status of everything
-		- add [name] [--cd 'path'] <--exec 'command'> [--count n] [--port p] : adds a new process group
-		  --cd 'path' - Optional, working directory of processes in the group.
-		  --exec 'command' - Required. The shell command to execute, will be parsed by /bin/sh.
-		  --count N - Optional. Number of processes to spawn. Default 1.
-		  --port P - Optional. Assign the PORT environment variable for each process, incrementing from P.
-		    A process given --port is "started" only when it starts listening on the proper PORT.
-		- remove [name] : remove a process group
-		- enable [id] : enable a group or single process
-		- disable [id] : disable a group or single process
-
-		e.g. 'shep add mygroup --cd test --exec "node app.js" --count 3 --port 1080'
-		e.g. 'shep disable mygroup-2' # just disable the 3rd member of the group
-
-	"""
-	process.exit 0
 
 readTimeout = 3000 # how long to wait for a response, to any command
 startupTimeout = 1000 # how long to wait after issuing an 'up' before inquiring with 'status'
@@ -59,7 +37,6 @@ sendServerCmd = (_cmd, cb) =>
 
 	cb or= nop
 
-	{ Actions } = require '../actions'
 	unless action = Actions[_cmd]
 		return warn "No such action:", _cmd
 
@@ -119,11 +96,19 @@ waitForSocket = (timeout, cb) => # wait for the daemon to connect to the other s
 			error: -> @end(); setTimeout poll, 100
 			connect: -> @end(); cb(null)
 
+doHelp = =>
+	console.log if cmd._[1] of Actions
+		"shep #{cmd._[1]}\n  " +
+		(o.join(' - ') for o in Actions[cmd._[1]].options ? [[ "No options." ]]).join("\n  ")
+	else "shep <#{(k for k of Actions).join "|"}>"
+	process.exit 0
+
 # the subset of commands that cause status changes (and should show status)
 statusChangeCommands = ['start','stop','enable','disable','add','remove','scale','replace']
 
 c = cmd._[0]
 switch c # some commands get handled without connecting to the daemon
+	when 'help' then doHelp()
 	when 'version' then Fs.readFile("./VERSION").pipe(process.stdout)
 	when 'init' then doInit (err) =>
 		err and warn err
@@ -132,11 +117,10 @@ switch c # some commands get handled without connecting to the daemon
 		Daemon.doStart(false)
 		waitForSocket 3000, (err) =>
 			if err is 'timeout'
-				console.log "timeout"
+				warn "Daemon did not start within timeout."
 				exit_soon 1
 			else
 				sendServerCmd 'status', =>
-					console.log "Finished."
 					exit_soon 0
 	when 'down' then Daemon.doStop(true)
 	else sendServerCmd c, =>

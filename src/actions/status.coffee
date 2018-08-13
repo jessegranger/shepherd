@@ -18,7 +18,7 @@ Object.assign module.exports, {
 			if not ( resp? and ('object' is typeof resp) and ('groups' of resp) )
 				return console.log "Response:", resp
 
-			console.log "Status: online, pid: #{resp.pid} net: (#{socket._connectLatency}ms, #{resp.send - resp.start}ms, #{Date.now() - resp.send}ms)"
+			console.log "Status: online, pid: #{resp.pid} net: (#{resp.send - resp.start}ms, #{Date.now() - resp.send}ms)"
 			console.log "Groups: #{resp.groups.length}"
 
 			pad_columns = (a,w=[19, 7, 7, 10, 8, 8, 14, 7, 7]) ->

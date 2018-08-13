@@ -83,7 +83,7 @@ writeNginxFile = (cb) =>
 	null
 
 toConfig = =>
-	_reload = if reload is defaults.reload then "" else " --reload '#{reload}'"
+	_reload = if reload is defaults.reload then "" else " --reload-cmd '#{reload}'"
 	_file = if Files.nginxFile is Files.makePath("nginx") then "" else " --file '#{Files.nginxFile}'"
 	_template = if Files.nginxTemplate is defaults.template then "" else " --template '#{Files.nginxTemplate}'"
 	_disabled = if disabled then " --disable" else " --enable"

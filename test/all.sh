@@ -495,9 +495,9 @@ if it "$*" 'should use nginx.template to write nginx'; then
 	echo "{{name}}:{{public_name}}:{{public_port}}:{{ssl_cert}}:{{ssl_key}}:{{#each group}}{{ this.port }}{{/each}}" > $T
 	check_up
 	sleep 2
-	# cat "$TEMP_PATH/.shep/log"
 	check [ -e "$TEMP_PATH/.shep/nginx" ]
-	check [ "`cat "$TEMP_PATH/.shep/nginx"`" = "test:www.example.com:8881:::19011" ]
+	D=`cat "$TEMP_PATH/.shep/nginx"`
+	check [ "$D" = "test:www.example.com:8881:some_cert:some_key:19011" ]
 	check_down
 	pass
 fi
@@ -514,7 +514,7 @@ if it "$*" 'should write nginx on status change'; then
 	T="$TEMP_PATH/.shep/nginx.template"
 	echo "{{name}}:{{public_name}}:{{public_port}}:{{ssl_cert}}:{{ssl_key}}:{{#each group}} {{ this.port }}{{/each}}" > $T
 	check_up
-	sleep 1
+	sleep 2
 	# cat "$TEMP_PATH/.shep/log"
 	N="$TEMP_PATH/.shep/nginx"
 	check [ -e $N ]
@@ -548,7 +548,7 @@ if it "$*" 'should handle multiple groups'; then
 	T="$TEMP_PATH/.shep/nginx.template"
 	echo "{{name}}:{{public_name}}:{{public_port}}:{{ssl_cert}}:{{ssl_key}}:{{#each group}} {{ this.port }}{{/each}}" > $T
 	check_up
-	sleep 1
+	sleep 2
 	# cat "$TEMP_PATH/.shep/log"
 	N="$TEMP_PATH/.shep/nginx"
 	check [ -e $N ]

@@ -63,20 +63,22 @@ generate = (t)=>
 			}
 	buf
 
+nop = ->
 writeNginxFile = (cb) =>
-	return cb?(null, false) if disabled
-	echo "Saving nginx file: #{Files.nginxFile}..."
+	cb or= nop
+	return cb(null, false) if disabled
+	echo "Saving nginx file: #{expandPath Files.nginxFile}..."
 	start = Date.now()
-	verbose "Reading nginx template...", Files.nginxTemplate
+	verbose "Reading nginx template...", expandPath Files.nginxTemplate
 	Fs.readFile expandPath(Files.nginxTemplate), (err, data) ->
 		if err
 			warn "Failed to read nginx template:", err
 			return cb?(null, false)
 		text = generate Handlebars.compile data.toString('utf8')
-		verbose "Writing nginx file...", Files.nginxFile
+		verbose "Writing nginx file...", expandPath Files.nginxFile
 		Fs.writeFile expandPath(Files.nginxFile), text, (err) ->
 			verbose "writeNginxFile took #{Date.now() - start} ms"
-			cb?(err, not err?)
+			cb(err, not err?)
 		null
 	null
 
@@ -96,12 +98,13 @@ toConfig = =>
 	buf
 
 reloadNginx = (cb) =>
-	return cb?(null, false) if disabled
+	cb or= nop
+	return cb(null, false) if disabled
 	echo "Reloading nginx..."
 	p = ChildProcess.exec(reload, { shell: true })
 	p.stdout.on 'data', (data) -> echo "#{reload}", data.toString("utf8")
 	p.stderr.on 'data', (data) -> echo "#{reload} (stderr)", data.toString("utf8")
-	cb?(null, false)
+	cb(null, false)
 
 sync = (cb) =>
 	writeNginxFile (err, acted) =>

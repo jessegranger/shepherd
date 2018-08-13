@@ -1,6 +1,7 @@
 #!/usr/bin/env coffee
 
 Fs = require 'fs'
+Net = require 'net'
 Daemon = require '../daemon'
 { $, cmd, echo, warn, verbose, exit_soon } = require '../common'
 { exists, socketFile, configFile, basePath, createBasePath, expandPath } = require '../files'
@@ -32,25 +33,31 @@ if cmd.help or cmd.h or cmd._[0] is 'help'
 readTimeout = 3000 # how long to wait for a response, to any command
 startupTimeout = 1000 # how long to wait after issuing an 'up' before inquiring with 'status'
 
+nop = ->
 doInit = (cb) ->
 	defaultsFile = process.cwd() + "/.shep/defaults"
+	cb or= nop
 	if exists(configFile) and not (cmd.f or cmd.force)
 		echo "Configuration already exists (#{configFile})"
-		cb?(null, false)
+		cb(null, false)
 	else
 		verbose "Checking for defaults file:", defaultsFile
 		if exists(defaultsFile)
 			echo "Applying default config..."
-			Fs.copyFile expandPath(defaultsFile), expandPath(configFile), (err) => cb?(null, true)
+			Fs.copyFile expandPath(defaultsFile), expandPath(configFile), (err) => cb(null, true)
 		else
 			createBasePath ".", cb
 	null
+
+_on = (s, kv) => s.on(k, v.bind(s)) for k,v of kv
 
 sendServerCmd = (_cmd, cb) =>
 	unless exists(basePath)
 		return echo "No .shep directory found."
 	unless exists(socketFile)
 		return echo "Status: offline."
+
+	cb or= nop
 
 	{ Actions } = require '../actions'
 	unless action = Actions[_cmd]
@@ -60,59 +67,79 @@ sendServerCmd = (_cmd, cb) =>
 	Tnet = require '../util/tnet'
 
 	on_error = (err) =>
+		console.error "on_error:", err
 		warn "socket error", $.debugStack err
 
 	do retryConnect = =>
-		connectStart = Date.now()
-		socket = Net.connect path: expandPath socketFile
-		socket.on 'close', =>
-			cb?(null, true)
-		socket.on 'error', (err) => # probably daemon is not running, should start it
-			if err.code is 'ENOENT'
-				if _cmd is 'start'
-					Daemon.doStart(false)
-					setTimeout retryConnect, readTimeout
-				else
+		_on Net.connect( path: expandPath socketFile ),
+			close: -> cb(null, true)
+			error: (err) ->
+				if err.code is 'ENOENT'
+					if _cmd is 'start'
+						Daemon.doStart(false)
+						setTimeout retryConnect, readTimeout
+					else
+						echo "Status: offline."
+						exit_soon 1
+				else if err.code is 'EADDRNOTAVAIL'
 					echo "Status: offline."
 					exit_soon 1
-			else if err.code is 'EADDRNOTAVAIL'
-				echo "Status: offline."
-				exit_soon 1
-			else on_error err
-
-		socket.on 'connect', =>
-			socket._connectLatency = Date.now() - connectStart
-			try
-				msg = action.toMessage cmd
-				if cmd._.length > 1 and not (('group' of cmd) or ('instance' of cmd))
-					if /\w/.test cmd._[1]
-						msg.auto = cmd._[1]
-				bytes = $.TNET.stringify msg
-			catch err then return on_error err
-			socket.write bytes, =>
-				action.onConnect?(socket)
-				if 'onResponse' of action
+				else on_error err
+			connect: ->
+				try
+					msg = action.toMessage cmd
+					if cmd._.length > 1 and not (('group' of cmd) or ('instance' of cmd))
+						if /\w+/.test cmd._[1]
+							msg.auto = cmd._[1]
+					bytes = $.TNET.stringify msg
+				catch err then return on_error err
+				@write bytes, =>
+					action.onConnect?(@)
+					unless 'onResponse' of action
+						return @end()
 					timeout = $.delay readTimeout, =>
 						warn "Timed-out waiting for a response from the daemon."
-						socket.end()
-					Tnet.read_stream socket, (item) =>
+						@end()
+					Tnet.read_stream @, (item) =>
 						timeout.cancel()
-						action.onResponse item, socket
-				else
-					socket.end()
+						action.onResponse item, @
+					null
 				null
-			null
 		null
 	null
 
-switch cmd._[0] # some commands get handled without connecting to the daemon
-	when 'version' then process.stdout.write String Fs.readFileSync "./VERSION"
-	when 'init' then return doInit (err) =>
+waitForSocket = (timeout, cb) => # wait for the daemon to connect to the other side of the socketFile
+	start = +new Date()
+	do poll = =>
+		if (elapsed = +new Date() - start) > timeout
+			return cb('timeout')
+		unless exists(socketFile)
+			return setTimeout poll, 100
+		_on Net.connect( path: expandPath socketFile ),
+			error: -> @end(); setTimeout poll, 100
+			connect: -> @end(); cb(null)
+
+# the subset of commands that cause status changes (and should show status)
+statusChangeCommands = ['start','stop','enable','disable','add','remove','scale','replace']
+
+c = cmd._[0]
+switch c # some commands get handled without connecting to the daemon
+	when 'version' then Fs.readFile("./VERSION").pipe(process.stdout)
+	when 'init' then doInit (err) =>
 		err and warn err
 		exit_soon (if err then 1 else 0)
-	when 'up' then Daemon.doStart(false); $.delay startupTimeout, => sendServerCmd 'status'
-	when 'down' then return Daemon.doStop(true)
-	else sendServerCmd cmd._[0], =>
-		if cmd._[0] in ['start','stop','enable','disable','add','remove','scale','replace']
-			$.delay 300, => sendServerCmd 'status', => exit_soon 0
+	when 'up'
+		Daemon.doStart(false)
+		waitForSocket 3000, (err) =>
+			if err is 'timeout'
+				console.log "timeout"
+				exit_soon 1
+			else
+				sendServerCmd 'status', =>
+					console.log "Finished."
+					exit_soon 0
+	when 'down' then Daemon.doStop(true)
+	else sendServerCmd c, =>
+		if c in statusChangeCommands
+			$.delay 500, => sendServerCmd 'status', => exit_soon 0
 		else exit_soon 0

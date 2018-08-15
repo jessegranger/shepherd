@@ -4,10 +4,11 @@
 Fs = require 'fs'
 Nginx = require '../daemon/nginx'
 Output = require '../daemon/output'
+Health = require '../daemon/health'
 { Groups } = require '../daemon/groups'
-Actions = {} # placeholder
 { parseArguments } = require './parse-args'
 { configFile, basePath, expandPath } = require '../files'
+Actions = null
 
 _reading = false
 
@@ -28,6 +29,7 @@ saveConfig = (cb) ->
 		else
 			for proc in group when not proc.enabled
 				buf += "disable --instance #{proc.id}\n"
+	buf += clean Health.toConfig()
 	buf += clean Nginx.toConfig()
 	buf += "start\n"
 	Fs.writeFile expandPath(configFile), buf, (err) ->
@@ -66,5 +68,4 @@ readConfig = (cb) ->
 	true
 
 Object.assign module.exports, { saveConfig, readConfig }
-
 { Actions } = require '../actions'

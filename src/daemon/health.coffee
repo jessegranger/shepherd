@@ -1,6 +1,7 @@
 $ = require 'bling'
 Http = require 'http'
 { echo } = require '../common'
+{ Groups } = require '../daemon/groups'
 
 $.extend module.exports, Health = {
 	defaultPath: "/",
@@ -95,12 +96,13 @@ $.extend module.exports, Health = {
 		Groups.forEach (group) ->
 			return unless group.monitors?
 			for path, mon of group.monitors
-				{ interval, status, text, timeout } = mon
+				{ interval, status, text, timeout, paused } = mon
 				buf += "health --group #{group.name} --path \"#{path}\"" +
 					(if status > 0 then " --status #{status}" else "") +
 					(if interval > 0 then " --interval #{interval}" else "") +
 					(if text.length > 0 then " --contains \"#{text}\"" else "") +
-					(if timeout > 0 then " --timeout #{timeout}")
+					(if timeout > 0 then " --timeout #{timeout}" else "") +
+					(if paused then " --pause" else "")
 		buf
 
 }

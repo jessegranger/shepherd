@@ -1,6 +1,7 @@
 { $, echoResponse }  = require '../common'
 Health = require '../daemon/health'
 { Groups } = require '../daemon/groups'
+{ saveConfig } = require '../util/config'
 { int, trueFalse } = require '../format'
 
 Object.assign module.exports, {
@@ -21,8 +22,8 @@ Object.assign module.exports, {
 		g: cmd.group,
 		p: cmd.path,
 		s:(int cmd.status),
-		v:(1000 * int cmd.interval),
-		o:(int cmd.timeout),
+		v:(1000 * int(cmd.interval ? 10)),
+		o:(int(cmd.timeout ? 3000)),
 		t: cmd.contains,
 		d:(trueFalse cmd.delete),
 		z:(trueFalse cmd.pause),
@@ -30,7 +31,10 @@ Object.assign module.exports, {
 		l: (trueFalse cmd.list)
 	}
 	onMessage: (msg, client, cb) ->
-		reply = (x, ret) -> client?.write $.TNET.stringify x; cb?(ret); ret
+		reply = (x, ret) ->
+			client?.write $.TNET.stringify x
+			ret and saveConfig()
+			cb?(ret); ret
 		if msg.l # --list
 			return reply Health.toConfig(), false
 

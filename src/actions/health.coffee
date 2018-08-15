@@ -1,7 +1,7 @@
-$ = require 'bling'
+{ $, echoResponse }  = require '../common'
 Health = require '../daemon/health'
 { Groups } = require '../daemon/groups'
-{ trueFalse } = require '../format'
+{ int, trueFalse } = require '../format'
 
 Object.assign module.exports, {
 	options: [
@@ -9,8 +9,8 @@ Object.assign module.exports, {
 		[ "--path <path>", "Will request http://localhost:port/<path> and check the response." ]
 		[ "--status <code>", "Check the status code of the response."]
 		[ "--contains <text>", "Check that the response contains some bit of text."]
-		[ "--interval <secs>", "How often to run a check." ]
-		[ "--timeout <ms>", "Fail if response is slower than this." ]
+		[ "--interval <secs>", "How often to run a check.", int ]
+		[ "--timeout <ms>", "Fail if response is slower than this.", int ]
 		[ "--delete", "Remove a health check." ]
 		[ "--pause", "Temporarily pause a health check." ]
 		[ "--resume", "Resume a health check after pausing." ]
@@ -64,5 +64,5 @@ Object.assign module.exports, {
 		else
 			return reply "Did not add monitor.", false
 
-	onResponse: (resp, socket) -> console.log resp; socket.end()
+	onResponse: echoResponse
 }

@@ -1,4 +1,4 @@
-{ $, echo, warn, verbose, required, echoResponse } = require '../../common'
+{ $, echo, warn, verbose, required, echoResponse } = require '../common'
 { trueFalse } = require "../format"
 { saveConfig } = require '../util/config'
 { Groups } = require "../daemon/groups"

@@ -1,4 +1,4 @@
-{ $, echo, warn, verbose, required, echoResponse } = require '../../common'
+{ $, echo, warn, verbose, required, echoResponse } = require '../common'
 { trueFalse } = require "../format"
 Fs = require 'fs'
 

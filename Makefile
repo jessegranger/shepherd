@@ -1,4 +1,4 @@
-SRC_FILES=$(subst src/,lib/,$(wildcard src/*/*.coffee))
+SRC_FILES=$(subst src/,lib/,$(wildcard src/*.coffee src/*/*.coffee))
 JS_FILES=$(SRC_FILES:.coffee=.js)
 
 all: $(JS_FILES)

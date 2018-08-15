@@ -1,5 +1,6 @@
 
 
+int = (n) -> parseInt((n ? 0), 10)
 yesNo = (v) -> if v then "yes" else "no"
 secs = 1000
 mins = 60 * secs
@@ -24,4 +25,4 @@ formatUptime = (ms) ->
 
 trueFalse = (v) -> if v then true else false
 
-module.exports = { yesNo, formatUptime, trueFalse }
+module.exports = { yesNo, formatUptime, trueFalse, int }

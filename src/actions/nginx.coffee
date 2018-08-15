@@ -2,7 +2,7 @@
 Fs = require 'fs'
 Nginx = require '../daemon/nginx'
 { Groups } = require '../daemon/groups'
-{ trueFalse } = require '../format'
+{ int, trueFalse } = require '../format'
 { saveConfig } = require '../util/config'
 { configFile, exists, nginxTemplate, expandPath } = require "../files"
 
@@ -15,7 +15,7 @@ Object.assign module.exports, {
 		[ "--reload-now", "Read nginx.template, write a fresh config file, and issue the reload cmd to nginx." ]
 
 		[ "--group <name>", "Optional. If given, the following options apply:" ]
-		[ "  --port <n>", "Default 80 (or 443). 'server { listen <n>; }'" ]
+		[ "  --port <n>", "Default 80 (or 443). 'server { listen <n>; }'", int ]
 		[ "  --name <hostname>", "Default is the group name. 'server { server_name <name>; }'" ]
 		[ "  --ssl_cert <path>", "Optional. If given, port defaults to 443." ]
 		[ "  --ssl_key <path>", "Optional. If given, port defaults to 443." ]

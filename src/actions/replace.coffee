@@ -1,4 +1,4 @@
-{ $, echo, warn, verbose, required, echoResponse } = require '../../common'
+{ $, echo, warn, verbose, required, echoResponse } = require '../common'
 { addGroup, removeGroup } = require "../daemon/groups"
 addAction = require './add'
 removeAction = require './remove'

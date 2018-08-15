@@ -97,7 +97,7 @@ toConfig = =>
 				(if group.ssl_key then " --ssl_key #{group.ssl_key}" else ""))
 	buf
 
-reloadNginx = (cb) =>
+reloadNginx = $.debounce 500, (cb) =>
 	cb or= nop
 	return cb(null, false) if disabled
 	echo "Reloading nginx..."

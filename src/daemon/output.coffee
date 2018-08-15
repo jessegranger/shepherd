@@ -1,4 +1,3 @@
-
 { $, echo, verbose } = require '../common'
 Fs = require 'fs'
 { Writable } = require 'stream'
@@ -48,7 +47,7 @@ setOutput = (file, cb) =>
 				console.error "writeStream error:", (err.stack ? err)
 				setOutput null, cb
 		catch err
-			console.log "Caught error:", (err.stack ? err)
+			console.error "setOutput error:", (err.stack ? err)
 			outputFile = fileStream = null
 			cb?(err, false)
 	null

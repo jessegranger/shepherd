@@ -14,16 +14,16 @@ $.extend module.exports, Health = {
 		unless path.length > 0 then return new Error("Invalid path: #{path}")
 
 		interval = parseInt(interval ? Health.defaultInterval, 10)
-		unless isFinite(interval) and not isNaN(interval) then return new Error("Invalid interval: #{interval}.")
+		unless isFinite(interval) and not isNaN(interval) and (0 < interval < 4294967295) then return new Error("Invalid interval: #{interval}.")
 
 		status = parseInt(status ? Health.defaultStatus, 10)
-		unless isFinite(status) and not isNaN(status) then return new Error("Invalid status: #{status}.")
+		unless isFinite(status) and not isNaN(status) and (0 < status < 1000) then return new Error("Invalid status: #{status}.")
 
 		text = String(text ? Health.defaultText)
 		# if text.length > 0 then return new Error("Invalid text: #{text}.")
 
 		timeout = parseInt(timeout ? Health.defaultTimeout)
-		unless isFinite(timeout) and not isNaN(timeout) then return new Error("Invalid timeout: #{timeout}.")
+		unless isFinite(timeout) and not isNaN(timeout) and (0 < timeout < 4294967295) then return new Error("Invalid timeout: #{timeout}.")
 
 		group.monitors or= Object.create null
 		if path of group.monitors

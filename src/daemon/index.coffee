@@ -23,10 +23,6 @@ die = (msg...) ->
 	console.error msg...
 	exit_soon 1
 
-unless 'HOME' of process.env
-	echo "No $HOME in environment, can't place .shep directory."
-	return exit_soon 1
-
 readPid = ->
 	try parseInt Fs.readFileSync(expandPath pidFile).toString(), 10
 	catch then undefined

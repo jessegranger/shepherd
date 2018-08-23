@@ -63,10 +63,10 @@ Object.assign module.exports, {
 		unless 'p' of msg
 			return reply "--path is required when adding a monitor.", false
 
-		if Health.monitor Groups.get(msg.g), msg.p, msg.v, msg.s, msg.t, msg.o
+		if !(err = Health.monitor Groups.get(msg.g), msg.p, msg.v, msg.s, msg.t, msg.o)
 			return reply "Adding monitor for #{msg.g}.", true
 		else
-			return reply "Did not add monitor.", false
+			return reply "Failed to add monitor (error: "+err+")", false
 
 	onResponse: echoResponse
 }

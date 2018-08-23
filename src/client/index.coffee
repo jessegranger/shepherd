@@ -109,7 +109,7 @@ statusChangeCommands = ['start','stop','enable','disable','add','remove','scale'
 c = cmd._[0]
 switch c # some commands get handled without connecting to the daemon
 	when 'help' then doHelp()
-	when 'version' then Fs.readFile("./VERSION").pipe(process.stdout)
+	when 'version' then Fs.createReadStream("./VERSION").pipe(process.stdout)
 	when 'init' then doInit (err) =>
 		err and warn err
 		exit_soon (if err then 1 else 0)

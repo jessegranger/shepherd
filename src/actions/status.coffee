@@ -1,4 +1,4 @@
-$ = require 'bling'
+{ $, echo } = require '../common'
 Chalk = require 'chalk'
 { Groups } = require '../daemon/groups'
 SlimProcess = require '../util/process-slim'
@@ -10,7 +10,11 @@ healthSymbol = (v) -> switch v
 	when false then Chalk.red "x"
 
 Object.assign module.exports, {
-	toMessage: (cmd) -> { c: 'status' }
+	options: [
+		[ "--group <group>", "Only show status of one group." ]
+		[ "--instance <id>", "Only show status of one instance." ]
+	]
+	toMessage: (cmd) -> { c: 'status', i: cmd.instance, g: cmd.group }
 	onResponse: (resp, socket) ->
 		try
 			if not socket?
@@ -52,8 +56,10 @@ Object.assign module.exports, {
 		SlimProcess.getProcessTable (err, procs) => # force the cache to be fresh
 			if err then return cb?(err, false)
 			Groups.forEach (group) ->
+				return unless msg.g in [null, undefined, group.name]
 				output.groups.push _group = { name: group.name, cd: group.cd, exec: group.exec, n: group.n, port: group.port, grace: group.grace, procs: [] }
 				for proc in group
+					continue unless msg.i in [null, undefined, proc.id]
 					pid = proc.proc?.pid
 					pcpu = rss = 0
 					if pid?

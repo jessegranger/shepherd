@@ -32,6 +32,12 @@ function it() {
 function check() {
 	$* && printf " \u2713" || die " fail"
 }
+function check_file_contains() {
+	(cat "$1" | grep -q "$2") && printf " \u2713" || (cat $1 && die "Expected: $2")
+}
+function check_contains() {
+	(echo "$1" | grep -q "$2") && printf " \u2713" || die "Expected: $2 Got: $1"
+}
 function check_process() {
 	ps -eo pid,ppid,command | grep -v grep | grep -q "$*"
 	check [ "$?" -eq 0 ]
@@ -44,8 +50,9 @@ function check_init() {
 	check [ "$?" -eq 0 ]
 }
 function check_up() {
-	shep up | grep -q "Starting"
+	shep up --verbose | grep -q "Starting"
 	check [ "$?" -eq 0 -a -e "$TEMP_PATH/.shep/socket" -a -e "$TEMP_PATH/.shep/pid" -a -e "$TEMP_PATH/.shep/log" ]
+	sleep .3
 }
 function check_down() {
 	shep down | grep -q "Stopping"
@@ -82,5 +89,21 @@ crash_server="throw new Error('tis but a scratch')"
 simple_worker=$(cat <<EOF
 setInterval(()=>{ console.log("Working..."); }, 3000)
 setTimeout(()=>{ process.exit(0); }, 300000)
+EOF
+)
+
+bad_status_server=$(cat <<EOF
+n = 0; require('http').createServer((req, res) => {
+	res.statusCode = (++n % 2 == 0 ? 500 : 200);
+	res.end()
+}).listen({port: parseInt(process.env.PORT)});
+EOF
+)
+
+bad_text_server=$(cat <<EOF
+n = 0; require('http').createServer((req, res) => {
+	res.statusCode = 200;
+	res.end( (++n % 2 == 0 ? "Fail" : "OK") )
+}).listen({port: parseInt(process.env.PORT)});
 EOF
 )

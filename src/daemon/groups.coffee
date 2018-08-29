@@ -218,7 +218,7 @@ class Proc
 				@proc.stderr.on 'data', (data) => @log "(stderr)", data.toString("utf8")
 				@proc.on 'exit', (code, signal) =>
 					clearTimeout checkStarted
-					@statusString = "exit(#{code})" + (if @expected then " expected" else "")
+					@statusString = "exit(#{code})" + (if @expected then " (unexpected)" else "")
 					@started = false
 					if @expected
 						echo "Exit was not expected, restarting..."

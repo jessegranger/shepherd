@@ -1,6 +1,6 @@
 $ = require 'bling'
 Http = require 'http'
-{ echo } = require '../common'
+{ echo, verbose } = require '../common'
 { Groups } = require '../daemon/groups'
 
 $.extend module.exports, Health = {
@@ -28,6 +28,7 @@ $.extend module.exports, Health = {
 		group.monitors or= Object.create null
 		if path of group.monitors
 			return new Error("Group is already monitored.")
+		verbose "Adding health monitor", { path, interval, status, text, timeout }
 		group.monitors[path] = $.interval interval, ->
 			for proc in group when proc.expected then do (group, path, interval, status, text, timeout, proc) ->
 				countdown = null

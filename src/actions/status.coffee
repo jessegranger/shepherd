@@ -31,8 +31,9 @@ Object.assign module.exports, {
 			for group,g in resp.groups
 				if g is 0
 					console.log pad_columns ["Instance", "PID", "Port", "Uptime", "Healthy", "Enabled", "Status", "CPU", "RAM"]
-				else
 					console.log pad_columns ["--------", "---", "----", "------", "-------", "-------", "------", "---", "---"]
+				else
+					console.log ''
 				for line,i in group.procs
 					has_pid = line[1]?
 					line[1] ?= Chalk.red "-"

@@ -4,33 +4,39 @@ Http = require 'http'
 { Groups } = require '../daemon/groups'
 
 $.extend module.exports, Health = {
-	defaultPath: "/",
 	defaultInterval: 10000,
-	defaultStatus: 200,
-	defaultText: "",
 	defaultTimeout: 3000,
-	monitor: (group, path, interval, status, text, timeout) ->
-		path = String(path ? Health.defaultPath)
-		unless path.length > 0 then return new Error("Invalid path: #{path}")
+	monitor: (group, path, exec, interval, status, text, timeout) ->
+		if exec?
+			unless exec.length > 0
+				return new Error("Invalid exec command: #{exec}")
+		else if path?
+			unless path.length > 0
+				return new Error("Invalid path: #{path}")
+		else
+			return new Error("Either path or exec is required.")
+		verbose "Health.monitor", path, exec, interval, status, text, timeout
 
 		interval = parseInt(interval ? Health.defaultInterval, 10)
 		unless isFinite(interval) and not isNaN(interval) and (0 < interval < 4294967295) then return new Error("Invalid interval: #{interval}.")
 
-		status = parseInt(status ? Health.defaultStatus, 10)
-		unless isFinite(status) and not isNaN(status) and (0 < status < 1000) then return new Error("Invalid status: #{status}.")
+		if status?
+			status = parseInt(status, 10)
+			unless isFinite(status) and not isNaN(status) and (0 < status < 1000) then return new Error("Invalid status: #{status}.")
 
-		text = String(text ? Health.defaultText)
-		# if text.length > 0 then return new Error("Invalid text: #{text}.")
+		text = String(text ? '')
 
 		timeout = parseInt(timeout ? Health.defaultTimeout)
 		unless isFinite(timeout) and not isNaN(timeout) and (0 < timeout < 4294967295) then return new Error("Invalid timeout: #{timeout}.")
 
+		monitorKey = (path ? exec)
+
 		group.monitors or= Object.create null
-		if path of group.monitors
+		if monitorKey of group.monitors
 			return new Error("Group is already monitored.")
 		verbose "Adding health monitor", { path, interval, status, text, timeout }
-		group.monitors[path] = $.interval interval, ->
-			for proc in group when proc.expected then do (group, path, interval, status, text, timeout, proc) ->
+		group.monitors[monitorKey] = $.interval interval, ->
+			for proc in group when proc.expected then do (group, path, exec, interval, status, text, timeout, proc) ->
 				countdown = null
 				if proc.enabled and not proc.started
 					proc.healthy = false
@@ -43,27 +49,36 @@ $.extend module.exports, Health = {
 					proc.proc?.kill()
 				if timeout > 0
 					countdown = setTimeout (=> fail 'timeout'), timeout
-				req = Http.get {
-					host: "127.0.0.1"
-					port: proc.port
-					path: path
-				}, (res) ->
-					clearTimeout countdown
-					if status isnt 0 and res.statusCode isnt status
-						return fail("bad status: " + res.statusCode)
-					if text.length > 0
-						buffer = ""
-						res.setEncoding 'utf8'
-						res.on 'data', (data) -> buffer += data
-						res.on 'end', ->
-							unless buffer.indexOf(text) > -1
-								fail("text not found: " + text)
-					res.on 'error', (err) ->
-						fail("response error: " + String(err))
-					proc.healthy = true
-				req.on 'error', (err) ->
-					fail("request error: " + String(err))
-		Object.assign group.monitors[path], { interval, status, text, timeout }
+				if exec?
+					res = Shell.exec exec, { silent: true, async: false }
+					if status? and res.code isnt status
+						fail("bad status: " + res.code)
+					else if text? and not (res.stdout.indexOf(text) > -1)
+						fail("bad text: " + res.stdout)
+					else
+						proc.healthy = true
+				else if path?
+					req = Http.get {
+						host: "127.0.0.1"
+						port: proc.port
+						path: path
+					}, (res) ->
+						clearTimeout countdown
+						if status isnt 0 and res.statusCode isnt status
+							return fail("bad status: " + res.statusCode)
+						if text.length > 0
+							buffer = ""
+							res.setEncoding 'utf8'
+							res.on 'data', (data) -> buffer += data
+							res.on 'end', ->
+								unless buffer.indexOf(text) > -1
+									fail("text not found: " + text)
+						res.on 'error', (err) ->
+							fail("response error: " + String(err))
+						proc.healthy = true
+					req.on 'error', (err) ->
+						fail("request error: " + String(err))
+		Object.assign group.monitors[monitorKey], { interval, status, text, timeout }
 		return true
 	unmonitor: (group, path) ->
 		return false unless 'monitors' of group

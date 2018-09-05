@@ -1,14 +1,15 @@
-{ $, echoResponse }  = require '../common'
+{ $, echoResponse, warn, verbose }  = require '../common'
 Health = require '../daemon/health'
 { Groups } = require '../daemon/groups'
 { saveConfig } = require '../util/config'
-{ int, trueFalse } = require '../format'
+{ int, trueFalse } = require '../util/format'
 
 Object.assign module.exports, {
 	options: [
 		[ "--group <group>", "Check all processes in this group." ]
 		[ "--path <path>", "Will request http://localhost:port/<path> and check the response." ]
 		[ "--status <code>", "Check the status code of the response."]
+		[ "--exec <command>", "Instead of requesting a path, execute a shell command." ]
 		[ "--contains <text>", "Check that the response contains some bit of text."]
 		[ "--interval <secs>", "How often to run a check.", int ]
 		[ "--timeout <ms>", "Fail if response is slower than this.", int ]
@@ -22,15 +23,17 @@ Object.assign module.exports, {
 		g: cmd.group,
 		p: cmd.path,
 		s:(int cmd.status),
+		e: cmd.exec,
 		v:(1000 * int(cmd.interval ? 10)),
 		o:(int(cmd.timeout ? 3000)),
 		t: cmd.contains,
 		d:(trueFalse cmd.delete),
 		z:(trueFalse cmd.pause),
 		r:(trueFalse cmd.resume),
-		l: (trueFalse cmd.list)
+		l:(trueFalse cmd.list)
 	}
 	onMessage: (msg, client, cb) ->
+		verbose "health.onMessage", msg
 		reply = (x, ret) ->
 			client?.write $.TNET.stringify x
 			ret and saveConfig()
@@ -60,12 +63,13 @@ Object.assign module.exports, {
 			else
 				return reply "Group does not have a resumable monitor.", false
 
-		unless 'p' of msg
-			return reply "--path is required when adding a monitor.", false
+		unless ('p' of msg) or ('e' of msg)
+			return reply "Either --path or --exec is required when adding a monitor.", false
 
-		if !(err = Health.monitor Groups.get(msg.g), msg.p, msg.v, msg.s, msg.t, msg.o)
+		if !(err = Health.monitor Groups.get(msg.g), msg.p, msg.e, msg.v, msg.s, msg.t, msg.o)
 			return reply "Adding monitor for #{msg.g}.", true
 		else
+			warn "Failed to add monitor: ", err
 			return reply "Failed to add monitor (error: "+err+")", false
 
 	onResponse: echoResponse

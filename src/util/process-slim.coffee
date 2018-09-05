@@ -18,8 +18,8 @@ refresh_process_table_if_needed = (cb) ->
 		refresh_process_table(cb)
 	else cb(null, process_table)
 
-refresh_process_table = (cb) ->
-	process_table = {}
+refresh_process_table = (cb, ports=true) ->
+	new_table = {}
 	ps = ChildProcess.spawn('ps', ps_argv, { shell: false })
 	buf = ""
 	ps.stdout.on 'data', (data) -> buf += data.toString 'utf8'
@@ -34,20 +34,24 @@ refresh_process_table = (cb) ->
 				ppid = parseInt ppid
 				pcpu = parseFloat pcpu
 				rss = parseInt rss
-				process_table[pid] = { uid, pid, ppid, pcpu, rss, command, ports: [] }
-		lsof = ChildProcess.spawn('lsof', lsof_argv, { shell: false })
-		lsof_buf = ""
-		lsof.stdout.on 'data', (data) -> lsof_buf += data.toString 'utf8'
-		lsof.on 'error', cb
-		lsof.on 'close', ->
-			for line in lsof_buf.split /\n/
-				[ name, pid, user, fd, type, dev, sz, proto, addr, mode] = line.split(/ +/)
-				if mode is "(LISTEN)"
-					unless pid of process_table
-						process_table[pid] = { pid, ppid: 0, ports: [], pcpu: 0, rss: 0, command: "???" }
-					process_table[pid].ports.push addr
-			process_table_ts = Date.now()
-			cb null, process_table
+				new_table[pid] = { uid, pid, ppid, pcpu, rss, command, ports: [] }
+		if ports
+			lsof = ChildProcess.spawn('lsof', lsof_argv, { shell: false })
+			lsof_buf = ""
+			lsof.stdout.on 'data', (data) -> lsof_buf += data.toString 'utf8'
+			lsof.on 'error', cb
+			lsof.on 'close', ->
+				for line in lsof_buf.split /\n/
+					[ name, pid, user, fd, type, dev, sz, proto, addr, mode] = line.split(/ +/)
+					if mode is "(LISTEN)"
+						unless pid of new_table
+							new_table[pid] = { pid, ppid: 0, ports: [], pcpu: 0, rss: 0, command: "???" }
+						new_table[pid].ports.push addr
+				process_table_ts = Date.now()
+				cb null, process_table = new_table
+		else
+				cb null, new_table
+
 	null
 
 isChildOf = (ppid, pid, cb) ->

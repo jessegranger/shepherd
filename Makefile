@@ -1,5 +1,5 @@
-SRC_FILES=$(subst src/,lib/,$(wildcard src/*.coffee src/*/*.coffee))
-JS_FILES=$(SRC_FILES:.coffee=.js)
+SRC_FILES=$(wildcard src/*.coffee src/*/*.coffee)
+JS_FILES=$(subst src/,lib/,$(SRC_FILES:.coffee=.js))
 
 all: $(JS_FILES)
 
@@ -14,5 +14,8 @@ test: all
 
 clean:
 	rm -rf lib/*
+
+force:
+	make -B all
 
 .PHONY: all test clean

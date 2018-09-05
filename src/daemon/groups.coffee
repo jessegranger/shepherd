@@ -124,13 +124,14 @@ class Proc
 	start: (cb) -> # cb called with a 'started' flag that indicates if any work was done
 		done = (err, ret) => cb?(err, ret); ret
 		if @started or not @enabled
-			verbose "Not starting because", { @started, @enabled }
+			@started and verbose "#{@id} already started, skipping."
+			@enabled or verbose "#{@id} not enabled, skipping."
 			return done(null, false)
 		@expected = true
 		env = Object.assign {}, process.env, { PORT: @port }
 		clearPort = (cb) =>
 			unless @expected and @enabled
-				verbose "Giving up on clearPort because", @expected, @enabled
+				verbose "#{@id} giving up on clearPort", { @expected, @enabled }
 				return done(null, false) # stopped while waiting
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
@@ -155,7 +156,7 @@ class Proc
 			return true
 		do doStart = =>
 			if @started or not @expected
-				verbose "Giving up on doStart because", @expected, @enabled
+				verbose "#{@id} giving up on doStart because", @expected, @enabled
 				return done(null, false)
 			clearPort (err) =>
 				if err or not @expected
@@ -194,15 +195,15 @@ class Proc
 						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
 						SlimProcess.waitForPortOwner @proc, @port, @group.grace, (err, owner) =>
 							unless @expected and @enabled # stopped while waiting?
-								echo "Giving up after waiting for port because", @expected, @enabled
+								echo "#{@id} giving up after waiting for port because", @expected, @enabled
 								return @stop => done(null, false)
 							switch err
 								when 'exit'
-									warn "Process exited immediately, will not retry."
+									warn "#{@id} exited immediately, will not retry."
 									@proc = null
 									return @stop => @disable => @statusString = "failed"; done(null, false)
 								when 'timeout'
-									echo "Port #{@port} was not owned within the timeout: #{@group.grace}ms"
+									echo "#{@id} did not listen on port #{@port} within the timeout: #{@group.grace}ms"
 									return @stop => done(null, false)
 								else
 									if err?
@@ -211,22 +212,25 @@ class Proc
 							finishStarting()
 					), 50
 				else # if there is no port to wait for then staying up for a few seconds counts as started
-					checkStarted = setTimeout finishStarting, @grace
+					checkStarted = setTimeout finishStarting, @group.grace
 				
 				# Connect the process output to our log writer.
 				@proc.stdout.on 'data', (data) => @log data.toString("utf8")
 				@proc.stderr.on 'data', (data) => @log "(stderr)", data.toString("utf8")
 				@proc.on 'exit', (code, signal) =>
 					clearTimeout checkStarted
-					@statusString = "exit(#{code})" + (if @expected then " (unexpected)" else "")
 					@started = false
-					if @expected
-						echo "Exit was not expected, restarting..."
-						return retryStart()
-					if @proc?.pid
-						try @proc?.unref?()
+					if @proc?.pid then try @proc?.unref?()
 					@proc = undefined
-				return true
+					if @expected is false # it went down and we dont care
+						@statusString = "exit(#{code})" # just report it
+					else if @statusString is "starting" # it went down right after launch
+						echo "#{@id} exited immediately, will not retry."
+						@disable => @statusString = "failed" # mark it as failed
+					else # it should be up, but went down
+						echo "#{@id} Unexpected exit, restarting..."
+						return retryStart()
+					return true
 
 	stop: (cb) ->
 		@statusString = "stopping"
@@ -267,7 +271,7 @@ class Proc
 		acted = @started or @enabled
 		@enabled = false
 		_end = => @statusString = "disabled"; cb?()
-		if acted then @stop _end
+		if @started then @stop _end
 		else _end()
 		acted
 
@@ -303,20 +307,19 @@ actOnAll = (method, cb) ->
 	acted = false
 	progress = $.Progress(Groups.size + 1) \
 		.then => afterAction method, acted, cb
+	finishOne = (ret) =>
+		acted = ret or acted
+		progress.finish 1
 	Groups.forEach (group) ->
 		if 'function' is typeof group[method]
-			group[method] (ret) =>
-				acted = ret or acted
-				progress.finish 1
-		else for proc in group when method of proc
-			proc[method] (ret) =>
-				acted = ret or acted
-				progress.finish 1
+			group[method] finishOne
+		else for proc in group
+			proc[method]? finishOne
 	progress.finish 1
 
 addGroup = (name, cd=".", exec, count=1, port, grace=DEFAULT_GRACE, cb) ->
 	if Groups.has(name)
-		echo "Group already exists. Did you mean 'replace'?"
+		warn "Group already exists. Did you mean 'replace'?"
 		return false
 	echo "Adding group:", name
 	verbose { cd, exec, count, port, grace }

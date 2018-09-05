@@ -1,7 +1,8 @@
 { $, echo, warn, verbose, required, echoResponse } = require '../common'
-{ trueFalse } = require "../format"
 { saveConfig } = require '../util/config'
+{ trueFalse } = require "../util/format"
 { Groups } = require "../daemon/groups"
+{ exists } = require "../files"
 Output = require '../daemon/output'
 
 Object.assign module.exports, {

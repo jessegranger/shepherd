@@ -1,5 +1,5 @@
 { $, echo, warn, verbose, required, echoResponse } = require '../common'
-{ trueFalse } = require "../format"
+{ trueFalse } = require "../util/format"
 Fs = require 'fs'
 
 Object.assign module.exports, {

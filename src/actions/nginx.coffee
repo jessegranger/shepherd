@@ -2,7 +2,7 @@
 Fs = require 'fs'
 Nginx = require '../daemon/nginx'
 { Groups } = require '../daemon/groups'
-{ int, trueFalse } = require '../format'
+{ int, trueFalse } = require '../util/format'
 { saveConfig } = require '../util/config'
 { configFile, exists, nginxTemplate, expandPath } = require "../files"
 

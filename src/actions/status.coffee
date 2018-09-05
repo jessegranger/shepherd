@@ -2,7 +2,7 @@
 Chalk = require 'chalk'
 { Groups } = require '../daemon/groups'
 SlimProcess = require '../util/process-slim'
-{ formatUptime } = require '../format'
+{ formatUptime } = require '../util/format'
 
 healthSymbol = (v) -> switch v
 	when undefined then Chalk.yellow "?"

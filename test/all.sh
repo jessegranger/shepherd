@@ -261,7 +261,9 @@ if it "$*" 'should keep instance up if it dies'; then
 	check_up
 	check_contains "`shep start --instance test-1`" "Starting instance test-1"
 	check_contains "`shep status test-1`" " started"
-	kill `shep status test-1 | awk '{print $2}'`
+	P=`shep status test-1 | grep test-1 | awk '{print $2}'`
+	check [ -n "$P" ]
+	kill $P
 	check [ "$?" -eq 0 ]
 	sleep 4
 	O=$(shep status test-1)
@@ -283,8 +285,7 @@ if it "$*" 'should handle an instant crashing process'; then
 	check_up
 	check_contains "`shep start --instance crash-0`" "Starting instance crash-0"
 	sleep 1
-	check_file_contains "$L" "Process exited immediately"
-	check_file_contains "$L" "Exit was not expected, restarting"
+	check_file_contains "$L" "crash-0 exited immediately, will not retry."
 	check_contains "`shep start --instance echo-0`" "Starting instance echo-0"
 	sleep 1
 	check_contains "`shep status echo-0`" " started"
@@ -562,12 +563,11 @@ if it "$*" 'should check status code'; then
 	check_init
 	echo "$bad_status_server" > bad_status_server.js
 	echo "add --group bad_status --exec 'node bad_status_server.js A $$' --count 1 --port 19011" > $C
-	echo "health --group bad_status --status 200 --interval 1" >> $C
+	echo "health --group bad_status --path / --status 200 --interval 1" >> $C
 	echo "start" >> $C
 	check_up
 	sleep 4
 	L="$TEMP_PATH/.shep/log"
-	cat $L
 	check_file_contains "$L" "Health check failed (bad status: 500)"
 	check_down
 	pass

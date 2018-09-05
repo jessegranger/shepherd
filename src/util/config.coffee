@@ -43,23 +43,25 @@ readConfig = (cb) ->
 	_err_text = ""
 	config_lines = null
 	done = =>
-		verbose "Finished reading config...", configFile, _err_text
-		_reading = false
-		cb?(null, true)
+		if _reading
+			verbose "Finished reading config...", configFile, _err_text
+			_reading = false
+			cb?(null, true)
 	try config_lines = String(Fs.readFileSync expandPath configFile).split("\n")
 	catch err
 		_err_text = "(empty config file)"
-		done()
+		return done()
 	do next = =>
 		return done() unless config_lines?.length > 0
 		try
 			line = config_lines.shift()
 			return next() if line.length is 0
-			echo line
+			echo "config:", line
 			cmd = parseArguments(line)
-			if (_cmd  = cmd._[0]) of Actions
-				msg = Actions[_cmd].toMessage(cmd)
-				Actions[_cmd].onMessage msg, null, next
+			if (_cmd = cmd._[0]) of Actions
+				Actions[_cmd].onMessage \
+					Actions[_cmd].toMessage(cmd), \
+						null, next
 			else next()
 		catch err
 			console.error err.stack

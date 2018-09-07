@@ -14,6 +14,7 @@ _reading = false
 
 saveConfig = (cb) ->
 	if _reading
+		verbose "Cannot call saveConfig() while reading configuration file."
 		return cb?(null, false)
 	verbose "Saving config..."
 	clean = (o) -> (o?.replace(basePath, '%') ? '') + (o?.length and "\n" or "")

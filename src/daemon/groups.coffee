@@ -13,8 +13,7 @@ Groups = new Map()
 
 `const DEFAULT_GRACE = 9000;`
 
-quoted = (s) ->
-	'"' + s.replace(/"/g,'\\"') + '"'
+quoted = (s) -> '"' + s.replace(/"/g,'\\"') + '"'
 
 class Group extends Array
 	createProcess = (g, i) ->

@@ -22,7 +22,7 @@ defaults = {
 		{{/each}}
 		}
 		server {
-			listen {{ public_port }};
+			listen [::]:{{ public_port }};
 			server_name {{ public_name }};
 			location / {
 				proxy_pass http://{{ name }};
@@ -30,7 +30,7 @@ defaults = {
 		}
 		{{#if ssl_cert}}
 		server {
-			listen 443;
+			listen [::]:443;
 			server_name {{ public_name }};
 			ssl on;
 			ssl_certificate {{ ssl_cert }};
@@ -52,11 +52,11 @@ generate = (t)=>
 	buf = ""
 	return "no template" unless t?
 	Groups.forEach (group) =>
-		if group.port?
+		if group.public_port?
 			buf += t {
 				group: group,
 				public_name: group.public_name ? group.name
-				public_port: group.public_port ? 80
+				public_port: group.public_port
 				ssl_cert: group.ssl_cert
 				ssl_key: group.ssl_key
 				name: group.name

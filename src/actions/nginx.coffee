@@ -51,22 +51,30 @@ Object.assign module.exports, {
 			return reply "writing nginx config", true
 
 		if msg.g?
+			acted = false
 			if not Groups.has(msg.g)
 				return reply "No such group.", false
 			group = Groups.get(msg.g)
 			if msg.p?
-				group.public_port = parseInt(msg.p, 10)
+				acted = true
+				group.public_port = int msg.p
 			if msg.n?
+				acted = true
 				group.public_name = msg.n
 			if msg.sc?
+				acted = true
 				unless exists(msg.sc)
 					warn "ssl_cert file '#{msg.sc}' does not exist.", false
 				group.ssl_cert = msg.sc
 			if msg.sk?
+				acted = true
 				unless exists(msg.sk)
 					warn "ssl_key file '#{msg.sk}' does not exist.", false
 				group.ssl_key = msg.sk
-			return reply "Group updated.", true
+			if acted
+				return reply "Group updated.", true
+			else
+				return reply "No valid options specified.", false
 
 		if msg.l?
 			return reply Nginx.toConfig(), false

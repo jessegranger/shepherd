@@ -16,13 +16,13 @@ Global options:
 	--quiet or -q
 	--verbose or -v
 	--force or -f
-	--path <base-path> - Use `<base-path>/.shepherd` instead of searching.
+	--path <base-path> - Use `<base-path>/.shep` instead of searching.
 
 Commands:
 
 | Command |                                          | Example                                                   |
 | ------- | -----------                              | -------                                                   |
-| init    | Create a `.shepherd` folder here.        | `shep init`                                               |
+| init    | Create a `.shep` folder here.        | `shep init`                                               |
 | up      | Ensure the daemon is running.            | `shep up`                                                 |
 | down    | Stop the daemon.                         | `shep down`                                               |
 | add     | Add a process group.                     | `shep add echo --exec "node echo.js" --port 8081` |
@@ -39,9 +39,9 @@ Commands:
 Files
 -----
 
-`shep` reads and writes state from a `.shepherd` directory. You can specify this directory using `SHEPHERD_PATH` in the environment, or using the `--path` argument to any command.  If unspecified, `shep` will search for a `.shepherd` directory using the same rule Git uses to search for a `.git` folder: Start in the working directory, and check each parent until you find one. `shep init` is the only command that skips this search.
+`shep` reads and writes state from a `.shep` directory. You can specify this directory using `SHEPHERD_PATH` in the environment, or using the `--path` argument to any command.  If unspecified, `shep` will search for a `.shep` directory using the same rule Git uses to search for a `.git` folder: Start in the working directory, and check each parent until you find one. `shep init` is the only command that skips this search.
 
-Files inside the `.shepherd` directory:
+Files inside the `.shep` directory:
 
 	config - A list of commands to execute at daemon startup.
 	defaults - Will be copied to config by 'shep init'. This file should be in source control.
@@ -50,19 +50,19 @@ Files inside the `.shepherd` directory:
 	log - The (default) location to log output from all managed processes.
 	nginx - The (default) location to keep an up-to-date set of nginx upstreams.
 
-When reading the `config` file, any occurrence of "%" will be replaced with the full path to the `.shepherd` directory.
+When reading the `config` file, any occurrence of "%" will be replaced with the full path to the `.shep` directory.
 
 `> shep init`
 -----------
 
-`init` ensures that a `.shepherd` folder exists in the working directory.
+`init` ensures that a `.shep` folder exists in the working directory.
 
-If a `.shepherd` folder already exists, and has a `defaults` file, but no `config` file, it will copy `defaults` to `config`.
+If a `.shep` folder already exists, and has a `defaults` file, but no `config` file, it will copy `defaults` to `config`.
 
 `> shep up`
 ---------
 
-`up` ensures that a daemon has been spawned to manage the current `.shepherd` directory.
+`up` ensures that a daemon has been spawned to manage the current `.shep` directory.
 
 If `config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
 

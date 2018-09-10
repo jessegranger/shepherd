@@ -184,7 +184,7 @@ The generated upstreams file might look like this:
 	upstream group_name {
 		server 127.0.0.1:9001 weight=0 down; # disabled
 		server 127.0.0.1:9002 weight=1; # started
-		server 127.0.0.1:9002 weight=1 down; # enabled, but not started
+		server 127.0.0.1:9003 weight=1 down; # enabled, but not started
 		
 		keepalive 32;
 	}

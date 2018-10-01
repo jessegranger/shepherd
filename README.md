@@ -20,21 +20,25 @@ Global options:
 
 Commands:
 
-| Command |                                          | Example                                                   |
-| ------- | -----------                              | -------                                                   |
-| init    | Create a `.shep` folder here.        | `shep init`                                               |
-| up      | Ensure the daemon is running.            | `shep up`                                                 |
-| down    | Stop the daemon.                         | `shep down`                                               |
-| add     | Add a process group.                     | `shep add echo --exec "node echo.js" --port 8081` |
-| remove  | Remove a process group.                  | `shep remove echo`                                |
-| replace | Replace a group with new settings.       | `shep replace echo --exec "node foo.js"`          |
-| start   | Start processes (autostarts the daemon). | `shep start echo-1`                            |
-| stop    | Stop processes.                          | `shep stop echo`                                  |
-| restart | Restart processes.                       | `shep restart echo-1`                          |
-| status  | Report the current status.               | `shep status --verbose`                                   |
-| scale   | Scale a process group to a new size.     | `shep scale echo --count 2`                       |
-| nginx   | Configure the nginx integration.         | `shep nginx --file '%/nginx'`                             |
-| log     | Control the log output.                  | `shep log --tail`                                         |
+| Command |                                          | Example                                             |
+| ------- | -----------                              | -------                                             |
+| init    | Create a `.shep` folder here.            | `shep init`                                         |
+| up      | Ensure the daemon is running.            | `shep up`                                           |
+| down    | Stop the daemon.                         | `shep down`                                         |
+| add     | Add a process group.                     | `shep add echo --exec "node echo.js" --port 8081`   |
+| remove  | Remove a process group.                  | `shep remove echo`                                  |
+| replace | Replace a group with new settings.       | `shep replace echo --exec "node foo.js"`            |
+| start   | Start processes (autostarts the daemon). | `shep start echo-1`                                 |
+| stop    | Stop processes.                          | `shep stop echo`                                    |
+| restart | Restart processes.                       | `shep restart echo-1`                               |
+| disable | Disable an instance or group.            | `shep disable --group foo`                          |
+| enable  | Enable an instance or group.             | `shep enable --instance foo-1`                      |
+| status  | Report the current status.               | `shep status --verbose`                             |
+| config  | Manage the config file.                  | `shep config --list`                                |
+| health  | Manage a health-check on a group.        | `shep health --group foo --status 200 --interval 3` |
+| log     | Manage the log output.                   | `shep log --tail`                                   |
+| nginx   | Configure the nginx integration.         | `shep nginx --file '%/nginx'`                       |
+| scale   | Scale a process group to a new size.     | `shep scale echo --count 2`                         |
 
 Files
 -----
@@ -64,16 +68,18 @@ If a `.shep` folder already exists, and has a `defaults` file, but no `config` f
 
 `up` ensures that a daemon has been spawned to manage the current `.shep` directory.
 
-If `config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
+	--verbose - Launch the daemon with verbose logging.
+
+If `.shep/config` exists, each line will be read in as if it had been given as a command to `shep`, eg:
 
 	log --file "%/log"	
 	add echo --cd test/echo --exec "node echo_server.js" --count 4 --port 9001
 	nginx --disable
 	start
 
-When the daemon starts, it will create `socket` and `pid`, and possibly others.
+When the daemon starts, it will create `.shep/socket` and `.shep/pid`, and possibly others.
 
-Where indicated below, many commands cause the currently running configuration to be written to the `config` file. This does not apply to commands read from the `config` file.
+Where indicated below, many commands cause the currently running configuration to be written to the `config` file (overwriting that file).
 
 `> shep down`
 ---------
@@ -93,7 +99,7 @@ specifying a group:
 	--port <port> - The starting port. If n > 0 then port will be incremented. Optional.
 	--grace <ms> - How long to allow the process to startup. Optional. Default 9000
 
-If `--port` is specified, each new process is given `PORT` in it's environment.  The process is `"started"` once it is listening on it's given `PORT`.  Failure to listen on `PORT` within the `--grace` timeout will be fatal.
+If `--port` is specified, each new process is given `PORT` in it's environment.  The process is `"started"` once it is listening on it's given `PORT`.  Failure to listen on `PORT` within the `--grace` timeout will cause that process to become `"failed"` and not restarted.
 
 If `--port` is not specified, then the process is `"started"` if it stays up for it's full `--grace` period.  Be careful if you use long `--grace` times, with no `--port`, and high `--count`; this combination will lead to a slow `start` for that group.
 
@@ -113,6 +119,8 @@ This command causes `config` to be re-written.
 
 `replace` will first `remove` then re-`add` a group, using the new options.  Uses the same options as `add`.
 
+All the processes in the group will be stopped (during the remove), and started (after the add).
+
 This command causes `config` to be re-written.
 
 `> shep scale`
@@ -123,7 +131,9 @@ This command causes `config` to be re-written.
 	--group <name>
 	--count <n>
 
-This command causes `config` to be re-written.
+If the `--group` is started, then processes will be started or stopped immediately.
+
+This command causes `config` to be re-written. The new config will not contain a `--scale` command directly, but instead this scaling will be reflected in the corresponding `add --group` command.
 
 `> shep start`
 ------------

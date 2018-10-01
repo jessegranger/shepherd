@@ -1,5 +1,7 @@
 #!/usr/bin/env coffee
 
+__VERSION__ = '0.3.13'
+
 Fs = require 'fs'
 Net = require 'net'
 Daemon = require '../daemon'
@@ -109,7 +111,7 @@ statusChangeCommands = ['start','stop','enable','disable','add','remove','scale'
 c = cmd._[0]
 switch c # some commands get handled without connecting to the daemon
 	when 'help' then doHelp()
-	when 'version' then Fs.createReadStream("./VERSION").pipe(process.stdout)
+	when 'version' then console.log(__VERSION__)
 	when 'init' then doInit (err) =>
 		err and warn err
 		exit_soon (if err then 1 else 0)

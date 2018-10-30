@@ -52,10 +52,10 @@ generate = (t)=>
 	buf = ""
 	return "no template" unless t?
 	Groups.forEach (group) =>
-		if group.public_port?
+		if group.public_port? and group.public_name?
 			buf += t {
 				group: group,
-				public_name: group.public_name ? group.name
+				public_name: group.public_name
 				public_port: group.public_port
 				ssl_cert: group.ssl_cert
 				ssl_key: group.ssl_key

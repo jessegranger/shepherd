@@ -217,6 +217,22 @@ if it "$*" 'should start - everything'; then
 	pass
 fi
 
+if it "$*" 'should start - workers'; then
+	cd $(mkdeploy)
+	C="$TEMP_PATH/.shep/config"
+	check_init
+	echo "$simple_worker" > simple_worker.js
+	echo "add --group testA --exec 'node simple_worker.js A $$' --count 1" > $C
+	echo "add --group testB --exec 'node simple_worker.js B $$' --count 1" >> $C
+	check_up
+	check_contains "`shep start`" "Starting everything"
+	sleep 1
+	check_process "simple_worker.js A $$"
+	check_process "simple_worker.js B $$"
+	check_down
+	pass
+fi
+
 if it "$*" 'should start - groups'; then
 	cd $(mkdeploy)
 	C="$TEMP_PATH/.shep/config"
@@ -265,7 +281,7 @@ if it "$*" 'should keep instance up if it dies'; then
 	check [ -n "$P" ]
 	kill $P
 	check [ "$?" -eq 0 ]
-	sleep 4
+	dotsleep 4
 	O=$(shep status test-1)
 	check_contains "$O" " started"
 	check_contains "$O" " [0-9]*s"
@@ -289,6 +305,51 @@ if it "$*" 'should handle an instant crashing process'; then
 	check_contains "`shep start --instance echo-0`" "Starting instance echo-0"
 	sleep 1
 	check_contains "`shep status echo-0`" " started"
+	check_down
+	pass
+fi
+
+describe 'restart'
+if it "$*" 'should restart - everything'; then
+	cd $(mkdeploy)
+	C="$TEMP_PATH/.shep/config"
+	L="$TEMP_PATH/.shep/log"
+	check_init
+	echo "$echo_server" > echo_server.js
+	echo "$simple_worker" > simple_worker.js
+	echo "add --group testA --exec 'node echo_server.js A $$' --count 1 --port 19011" > $C
+	echo "add --group testB --exec 'node echo_server.js B $$' --count 1 --port 9021" >> $C
+	echo "add --group testC --exec 'node echo_server.js C $$' --count 1 --port 9022" >> $C
+	echo "add --group testD --exec 'node echo_server.js D $$' --count 1 --port 9023" >> $C
+	echo "add --group testE --exec 'node echo_server.js E $$' --count 1 --port 9024" >> $C
+	echo "disable --group testE" >> $C
+	echo "add --group testF --exec 'node simple_worker.js F $$' --count 1" >> $C
+	echo "add --group testG --exec 'node simple_worker.js G $$' --count 1" >> $C
+	echo "add --group testH --exec 'node simple_worker.js H $$' --count 1" >> $C
+	echo "disable --group testH" >> $C
+	echo "nginx --enable --reload-cmd 'echo'" >> $C
+	check_up
+	check_contains "`shep start`" "Starting everything"
+	dotsleep 3
+	check_process "echo_server.js A $$"
+	check_process "echo_server.js B $$"
+	check_process "echo_server.js C $$"
+	check_process "echo_server.js D $$"
+	check_no_process "echo_server.js E $$"
+	check_process "simple_worker.js F $$"
+	check_process "simple_worker.js G $$"
+	check_no_process "simple_worker.js H $$"
+	dotsleep 3
+	check_contains "`shep restart`" "Restarting everything"
+	dotsleep 3
+	check_process "echo_server.js A $$"
+	check_process "echo_server.js B $$"
+	check_process "echo_server.js C $$"
+	check_process "echo_server.js D $$"
+	check_no_process "echo_server.js E $$"
+	check_process "simple_worker.js F $$"
+	check_process "simple_worker.js G $$"
+	check_no_process "simple_worker.js H $$"
 	check_down
 	pass
 fi
@@ -486,7 +547,7 @@ if it "$*" 'should use nginx.template to write nginx'; then
 	T="$TEMP_PATH/.shep/nginx.template"
 	echo "{{name}}:{{public_name}}:{{public_port}}:{{ssl_cert}}:{{ssl_key}}:{{#each group}}{{ this.port }}{{/each}}" > $T
 	check_up
-	sleep 2
+	dotsleep 2
 	N="$TEMP_PATH/.shep/nginx"
 	check [ -e "$N" ]
 	check_file_contains "$N" "test:www.example.com:8881:some_cert:some_key:19011"
@@ -507,7 +568,7 @@ if it "$*" 'should write nginx on status change'; then
 	T="$TEMP_PATH/.shep/nginx.template"
 	echo "{{name}}:{{public_name}}:{{public_port}}:{{ssl_cert}}:{{ssl_key}}:{{#each group}} {{ this.port }}{{/each}}" > $T
 	check_up
-	sleep 2
+	dotsleep 2
 	# cat "$TEMP_PATH/.shep/log"
 	N="$TEMP_PATH/.shep/nginx"
 	check [ -e $N ]
@@ -536,7 +597,7 @@ if it "$*" 'should handle multiple groups'; then
 	T="$TEMP_PATH/.shep/nginx.template"
 	echo "{{name}}:{{public_name}}:{{public_port}}:{{ssl_cert}}:{{ssl_key}}:{{#each group}} {{ this.port }}{{/each}}" > $T
 	check_up
-	sleep 2
+	dotsleep 2
 	# cat "$TEMP_PATH/.shep/log"
 	N="$TEMP_PATH/.shep/nginx"
 	check [ -e $N ]
@@ -566,7 +627,7 @@ if it "$*" 'should check status code'; then
 	echo "health --group bad_status --path / --status 200 --interval 1" >> $C
 	echo "start" >> $C
 	check_up
-	sleep 4
+	dotsleep 4
 	L="$TEMP_PATH/.shep/log"
 	check_file_contains "$L" "Health check failed (bad status: 500)"
 	check_down

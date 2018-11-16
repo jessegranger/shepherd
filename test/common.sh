@@ -18,6 +18,16 @@ function mkdeploy() {
 	return 0
 }
 
+function dotsleep() {
+	ms=$1
+	if [ "$ms" -gt 0 ]; then
+		sleep 1
+		echo -n .
+		dotsleep `expr $ms - 1`
+	fi
+	return 0
+}
+
 function describe() {
 	echo $*
 }
@@ -87,7 +97,7 @@ EOF
 crash_server="throw new Error('tis but a scratch')"
 
 simple_worker=$(cat <<EOF
-setInterval(()=>{ console.log("Working..."); }, 3000)
+setInterval(()=>{ console.log("simple_worker is Working..."); }, 3000)
 setTimeout(()=>{ process.exit(0); }, 300000)
 EOF
 )

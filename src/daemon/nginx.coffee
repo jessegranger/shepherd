@@ -97,18 +97,36 @@ toConfig = =>
 				(if group.ssl_key then " --ssl_key #{group.ssl_key}" else ""))
 	buf
 
-reloadNginx = $.debounce 500, (cb) =>
+_callbacks = []
+_deferTimeout = null
+# like a debounce, but we save all the callback that _dont_ get fired
+defer = (ms, cb, f) =>
+	_callbacks.push cb
+	clearTimeout _deferTimeout
+	_deferTimeout = setTimeout (=>
+		while _callbacks.length > 1
+			_callbacks.pop()(null, false)
+		if _callbacks.length > 0
+			f(_callbacks.pop())
+	), ms
+	null
+
+reloadNginx = (cb) =>
 	cb or= nop
 	return cb(null, false) if disabled
-	echo "Reloading nginx..."
-	p = ChildProcess.exec(reload, { shell: true })
-	p.stdout.on 'data', (data) -> echo "#{reload}", data.toString("utf8")
-	p.stderr.on 'data', (data) -> echo "#{reload} (stderr)", data.toString("utf8")
-	cb(null, false)
+	defer 500, cb, (_cb) =>
+		lastReload = $.now
+		echo "Reloading nginx..."
+		p = ChildProcess.exec reload, shell: true
+		p.stdout.on 'data', (data) -> echo "#{reload}", data.toString("utf8")
+		p.stderr.on 'data', (data) -> echo "#{reload} (stderr)", data.toString("utf8")
+		_cb null, false
+	null
 
 sync = (cb) =>
-	writeNginxFile (err, acted) =>
-		return cb?(err, acted) if err or not acted
-		reloadNginx cb
+	defer 500, cb, (_cb) =>
+		writeNginxFile (err, acted) =>
+			return _cb?(err, acted) if err or not acted
+			reloadNginx _cb
 
 Object.assign module.exports, { writeNginxFile, reloadNginx, setReload, setTemplate, setFile, setDisabled, toConfig, sync, defaults }

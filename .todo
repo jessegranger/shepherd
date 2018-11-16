@@ -1,0 +1,2 @@
+1. release.sh should update __VERSION__ in src/client/index.coffee
+3. failed tasks have to be disabled before they can be enabled

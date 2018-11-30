@@ -39,6 +39,9 @@ class Group extends Array
 		if acted then @actOnAll 'disable', cb
 		else cb?()
 	scale: (n, cb) ->
+		unless (isFinite(n) and not isNaN(n) and n >= 0)
+			echo "[scale] Count must be a number >= 0."
+			return false
 		dn = n - @n
 		progress = $.Progress dn
 		progress.then => saveConfig cb
@@ -188,8 +191,7 @@ class Proc
 					checkStarted = setTimeout (=>
 						return done(null, false) unless @proc? and @expected
 						unless @proc?.pid?
-							@statusString = "exec failed"
-							@started = @expected = @enabled = @healthy = false
+							@markAsInvalid "exec failed"
 							return done(null, false)
 						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
 						SlimProcess.waitForPortOwner @proc, @port, @group.grace, (err, owner) =>
@@ -200,7 +202,9 @@ class Proc
 								when 'exit'
 									warn "#{@id} exited immediately, will not retry."
 									@proc = null
-									return @stop => @disable => @statusString = "failed"; done(null, false)
+									return @stop => @disable =>
+										@markAsInvalid "failed"
+										done(null, false)
 								when 'timeout'
 									echo "#{@id} did not listen on port #{@port} within the timeout: #{@group.grace}ms"
 									return @stop => done(null, false)

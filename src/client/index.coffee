@@ -9,7 +9,6 @@ Daemon = require '../daemon'
 { $, cmd, echo, warn, verbose, exit_soon } = require '../common'
 { exists, socketFile, configFile, basePath, createBasePath, expandPath } = require '../files'
 
-
 readTimeout = 3000 # how long to wait for a response, to any command
 startupTimeout = 1000 # how long to wait after issuing an 'up' before inquiring with 'status'
 
@@ -60,7 +59,7 @@ sendServerCmd = (_cmd, cb) =>
 					else
 						echo "Status: offline."
 						exit_soon 1
-				else if err.code is 'EADDRNOTAVAIL'
+				else if err.code in ['EADDRNOTAVAIL', 'ECONNREFUSED']
 					echo "Status: offline."
 					exit_soon 1
 				else on_error err
@@ -95,8 +94,13 @@ waitForSocket = (timeout, cb) => # wait for the daemon to connect to the other s
 		unless exists(socketFile)
 			return setTimeout poll, 100
 		_on Net.connect( path: expandPath socketFile ),
-			error: -> @end(); setTimeout poll, 100
-			connect: -> @end(); cb(null)
+			error: (err) ->
+				@end() # close our side
+				verbose "Ignoring error while waiting:", err
+				setTimeout poll, 100 # retry
+			connect: ->
+				@end() # close our side, its just a probe
+				cb(null)
 
 doHelp = =>
 	console.log if cmd._[1] of Actions

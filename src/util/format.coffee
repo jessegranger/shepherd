@@ -19,7 +19,7 @@ formatUptime = (ms) ->
 	s = Math.floor(t / secs)
 	t = t - (s * secs)
 	v = $("w d h m s".split " ").weave $ w, d, h, m, s
-	d and v.splice(-2, 2) # omit seconds if there are days
+	(d or w) and v.splice(-2, 2) # omit seconds if there are days
 	w and v.splice(-2, 2) # omit minutes if there are weeks
 	v.join('').replace(/^(0[wdhm])*/,'')
 

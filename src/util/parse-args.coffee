@@ -1,6 +1,16 @@
+#!/usr/bin/env coffee
+#
 $ = require 'bling'
 
 machine = $.StateMachine
+
+count = (substr, str, i = 0) ->
+	j = -1
+	ret = 0
+	while -1 < j = str.indexOf substr, i
+		i += j + 1
+		ret += 1
+	return ret
 
 class ArgumentMachine extends $.StateMachine
 	constructor: (debug=false) ->
@@ -84,7 +94,7 @@ class ArgumentMachine extends $.StateMachine
 	endParam: ->
 		@param is '' or
 			@obj[@param] = (@value is '') or
-				isFinite(f = parseFloat @value) and not isNaN(f) and f or @value
+				isFinite(f = parseFloat @value) and not isNaN(f) and count(".", @value) < 2 and f or @value
 
 machine = new ArgumentMachine(require.main is module)
 parseArguments = (str) ->
@@ -100,10 +110,12 @@ parseArgv = ->
 	ret.force or= ret.f
 	parsed = ret
 
-
 Object.assign module.exports, { parseArguments, parseArgv }
 
 if require.main is module
 	console.log machine.run.toString()
 	console.log parseArgv()
+	console.log ("80.80.").indexOf(".", 0)
+	console.log ("80.80.").indexOf(".", 3)
+	console.log count(".", "80.80.")
 

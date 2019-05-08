@@ -3,4 +3,5 @@ Makefile
 .*
 test/*
 src/*
+static/*
 release.sh

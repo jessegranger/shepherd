@@ -19,7 +19,7 @@ class Group extends Array
 	createProcess = (g, i) ->
 		port = undefined
 		if g.port
-			port = g.port + i
+			port = parseInt(g.port) + i
 		new Proc "#{g.name}-#{i}", g.cd, g.exec, port, g
 	constructor: (@name, @cd, @exec, @n, @port, @grace=DEFAULT_GRACE) ->
 		super()

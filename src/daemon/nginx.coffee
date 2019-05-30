@@ -118,9 +118,9 @@ reloadNginx = (cb) =>
 	return cb(null, false) if disabled
 	defer 500, cb, (_cb) =>
 		lastReload = $.now
-		echo "Reloading nginx..."
+		echo "Reloading nginx with command:", reload
 		p = ChildProcess.exec reload, shell: true
-		p.stdout.on 'data', (data) -> echo "#{reload}", data.toString("utf8")
+		p.stdout.on 'data', (data) -> echo "#{reload} (stdout)", data.toString("utf8")
 		p.stderr.on 'data', (data) -> echo "#{reload} (stderr)", data.toString("utf8")
 		_cb null, false
 	null

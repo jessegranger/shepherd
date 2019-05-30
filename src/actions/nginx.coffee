@@ -43,6 +43,7 @@ Object.assign module.exports, {
 			if ret
 				client?.write $.TNET.stringify m
 				saveConfig?()
+				Nginx.reloadNginx()
 			cb? (not ret and m or null), ret
 			ret
 

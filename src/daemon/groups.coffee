@@ -294,10 +294,8 @@ actOnInstance = (method, instanceId, cb) ->
 
 actOnGroup = (method, groupId, cb) ->
 	group = Groups.get(groupId)
-	unless group?
-		return false
 	if (not group)
-		return cb?('invalid group')
+		return cb?('No such group.')
 	if (method of group)
 		group[method] (ret) =>
 			afterAction method, ret, cb

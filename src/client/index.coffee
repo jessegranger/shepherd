@@ -1,6 +1,6 @@
 #!/usr/bin/env coffee
 
-__VERSION__ = '0.3.18'
+__VERSION__ = '0.3.19'
 
 Fs = require 'fs'
 Net = require 'net'

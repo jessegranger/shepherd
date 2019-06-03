@@ -6,6 +6,7 @@ saveConfig = null
 ChildProcess = require 'child_process'
 SlimProcess = require '../util/process-slim'
 { exists } = require '../files'
+{ quoted } = require '../common'
 
 # the global herd of processes
 Groups = new Map()
@@ -13,7 +14,6 @@ Groups = new Map()
 
 `const DEFAULT_GRACE = 9000;`
 
-quoted = (s) -> '"' + s.replace(/"/g,'\\"') + '"'
 
 class Group extends Array
 	createProcess = (g, i) ->

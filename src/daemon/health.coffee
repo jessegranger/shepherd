@@ -1,6 +1,6 @@
 $ = require 'bling'
 Http = require 'http'
-{ echo, verbose } = require '../common'
+{ echo, verbose, quoted } = require '../common'
 { Groups } = require '../daemon/groups'
 
 $.extend module.exports, Health = {
@@ -18,16 +18,19 @@ $.extend module.exports, Health = {
 		verbose "Health.monitor", path, exec, interval, status, text, timeout
 
 		interval = parseInt(interval ? Health.defaultInterval, 10)
-		unless isFinite(interval) and not isNaN(interval) and (0 < interval < 4294967295) then return new Error("Invalid interval: #{interval}.")
+		unless isFinite(interval) and not isNaN(interval) and (0 < interval < 4294967295)
+			return new Error("Invalid interval: #{interval}.")
 
 		if status?
 			status = parseInt(status, 10)
-			unless isFinite(status) and not isNaN(status) and (0 < status < 1000) then return new Error("Invalid status: #{status}.")
+			unless isFinite(status) and not isNaN(status) and (0 < status < 1000)
+				return new Error("Invalid status: #{status}.")
 
 		text = String(text ? '')
 
-		timeout = parseInt(timeout ? Health.defaultTimeout)
-		unless isFinite(timeout) and not isNaN(timeout) and (0 < timeout < 4294967295) then return new Error("Invalid timeout: #{timeout}.")
+		timeout = parseInt(timeout ? Health.defaultTimeout, 10)
+		unless isFinite(timeout) and not isNaN(timeout) and (0 < timeout < 4294967295)
+			return new Error("Invalid timeout: #{timeout}.")
 
 		monitorKey = (path ? exec)
 
@@ -115,8 +118,8 @@ $.extend module.exports, Health = {
 				{ interval, status, text, timeout, paused } = mon
 				buf += "health --group #{group.name} --path \"#{path}\"" +
 					(if status > 0 then " --status #{status}" else "") +
-					(if interval > 0 then " --interval #{interval}" else "") +
-					(if text.length > 0 then " --contains \"#{text}\"" else "") +
+					(if interval > 0 then " --interval #{Math.floor interval/1000}" else "") +
+					(if text.length > 0 then " --contains #{quoted text}" else "") +
 					(if timeout > 0 then " --timeout #{timeout}" else "") +
 					(if paused then " --pause" else "")
 		buf

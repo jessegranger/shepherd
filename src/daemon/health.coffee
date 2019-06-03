@@ -111,17 +111,17 @@ $.extend module.exports, Health = {
 			check.resume() for path,check of group.monitors
 		return true
 	toConfig: ->
-		buf = ""
+		items = []
 		Groups.forEach (group) ->
 			return unless group.monitors?
 			for path, mon of group.monitors
 				{ interval, status, text, timeout, paused } = mon
-				buf += "health --group #{group.name} --path \"#{path}\"" +
+				items.push "health --group #{group.name} --path \"#{path}\"" +
 					(if status > 0 then " --status #{status}" else "") +
 					(if interval > 0 then " --interval #{Math.floor interval/1000}" else "") +
 					(if text.length > 0 then " --contains #{quoted text}" else "") +
 					(if timeout > 0 then " --timeout #{timeout}" else "") +
 					(if paused then " --pause" else "")
-		buf
+		return items.join("\n")
 
 }

@@ -126,9 +126,12 @@ reloadNginx = (cb) =>
 	null
 
 sync = (cb) =>
+	cb or= nop
+	return cb(null, false) if disabled
 	defer 500, cb, (_cb) =>
+		_cb or= nop
 		writeNginxFile (err, acted) =>
-			return _cb?(err, acted) if err or not acted
+			return _cb(err, acted) if err or not acted
 			reloadNginx _cb
 
 Object.assign module.exports, { writeNginxFile, reloadNginx, setReload, setTemplate, setFile, setDisabled, toConfig, sync, defaults }

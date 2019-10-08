@@ -293,7 +293,7 @@ class Proc
 
 	markAsFailed: () ->
 		@failed = true
-		setTimeout (=> @checkForFailResume()), minutes(1)
+		setTimeout (=> @checkForFailResume()), minutes(2)
 		@markAsInvalid "failed"
 
 	markAsInvalid: (reason) ->

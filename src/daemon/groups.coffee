@@ -8,6 +8,8 @@ SlimProcess = require '../util/process-slim'
 { exists } = require '../files'
 { quoted } = require '../common'
 
+minutes = (n) -> n*60000
+
 # the global herd of processes
 Groups = new Map()
 # m.clear m.delete m.entries m.forEach m.get m.has m.keys m.set m.size m.values
@@ -105,6 +107,7 @@ class Proc
 		@healthy = undefined # used later by health checks
 		@cooldown = Proc.cooldown# this increases after each failed restart
 		@expected = false # should we restart this proc if it exits
+		@failed = false # used to track hard failures, aka "failed" status
 		# expose uptime
 		$.defineProperty @, 'uptime', {
 			get: => if @started then ($.now - @started) else 0
@@ -125,15 +128,20 @@ class Proc
 	# Start this process if it isn't already.
 	start: (cb) -> # cb called with a 'started' flag that indicates if any work was done
 		done = (err, ret) => cb?(err, ret); ret
-		if @started or not @enabled
-			@started and verbose "#{@id} already started, skipping."
-			@enabled or verbose "#{@id} not enabled, skipping."
+		if @started
+			verbose "#{@id} already started, skipping."
+			return done(null, false)
+		if @failed
+			verbose "#{@id} in failed state, skipping."
+			return done(null, false)
+		if not @enabled
+			verbose "#{@id} not enabled, skipping."
 			return done(null, false)
 		@expected = true
 		env = Object.assign {}, process.env, { PORT: @port }
 		clearPort = (cb) =>
-			unless @expected and @enabled
-				verbose "#{@id} giving up on clearPort", { @expected, @enabled }
+			if @failed or not (@expected and @enabled)
+				verbose "#{@id} giving up on clearPort", { @failed, @expected, @enabled }
 				return done(null, false) # stopped while waiting
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
@@ -151,18 +159,31 @@ class Proc
 						setTimeout (=> clearPort cb), 1000
 			else cb?()
 		retryStart = =>
-			return done(null, false) if @started or not @enabled
+			if @started or @failed or not @enabled
+				return done(null, false)
 			@cooldown = (Math.min 30000, @cooldown * 2)
 			@statusString = "waiting #{@cooldown}"
 			setTimeout doStart, @cooldown
 			return true
 		do doStart = =>
-			if @started or not @expected
-				verbose "#{@id} giving up on doStart because", @expected, @enabled
+			if @failed
+				verbose "#{@id} refusing to start failed instance."
+				return done(null, false)
+			if @started
+				verbose "#{@id} ignoring start of already started instance."
+				return done(null, false)
+			if not @expected
+				verbose "#{@id} ignoring start of unexpected instance."
 				return done(null, false)
 			clearPort (err) =>
-				if err or not @expected
-					verbose "Giving up after clearPort because", err, @expected
+				if err
+					verbose "#{@id} aborting start while inside clearPort", { err }
+					return done(null, false)
+				if @failed
+					verbose "#{@id} aborting start while inside clearPort", { @failed }
+					return done(null, false)
+				if not @expected
+					verbose "#{@id} aborting start while inside clearPort", { @expected }
 					return done(null, false)
 				checkStarted = null
 				@statusString = "starting"
@@ -170,6 +191,7 @@ class Proc
 					@cd = Path.resolve(process.cwd(), @cd)
 					verbose "cd:", @cd
 				catch err # it's actually possible for node's internals to throw an exception here if cwd() is weird
+					verbose "#{@id} CWD error: #{err.message}"
 					@markAsInvalid err.message
 					return done(err, false)
 				verbose "exec:", @exec, "as", @id
@@ -180,6 +202,7 @@ class Proc
 				@expected = true # tell the 'exit' handler to bring us back up if we die
 				finishStarting = =>
 					@started = $.now
+					@failed = false
 					@cooldown = Proc.cooldown
 					@statusString = "started"
 					if @port
@@ -203,7 +226,7 @@ class Proc
 									warn "#{@id} exited immediately, will not retry."
 									@proc = null
 									return @stop => @disable =>
-										@markAsInvalid "failed"
+										@markAsFailed()
 										done(null, false)
 								when 'timeout'
 									echo "#{@id} did not listen on port #{@port} within the timeout: #{@group.grace}ms"
@@ -229,7 +252,7 @@ class Proc
 						@statusString = "exit(#{code})" # just report it
 					else if @statusString is "starting" # it went down right after launch
 						echo "#{@id} exited immediately, will not retry."
-						@disable => @statusString = "failed" # mark it as failed
+						@disable => @markAsFailed()
 					else # it should be up, but went down
 						echo "#{@id} Unexpected exit, restarting..."
 						return retryStart()
@@ -250,7 +273,10 @@ class Proc
 			return true
 		@started = false
 		@proc = null
-		@statusString = if @enabled then "stopped" else "disabled"
+		@statusString = switch true
+			when @failed then "failed"
+			when @enabled then "stopped"
+			else "disabled"
 		cb? null, false
 		return false
 
@@ -262,16 +288,30 @@ class Proc
 		acted = not @enabled
 		@enabled = true
 		if acted then @start cb
-		else cb?()
+		else cb?(null, false)
 		acted
-	
+
+	markAsFailed: () ->
+		@failed = true
+		setTimeout (=> @checkForFailResume()), minutes(1)
+		@markAsInvalid "failed"
+
 	markAsInvalid: (reason) ->
 		@enabled = @expected = @started = @healthy = false
 		@statusString = reason
 		false
 
+	checkForFailResume: ->
+		return if @started or not @failed
+		@log "Attempting to resume from failure..."
+		@disable =>
+			@expected = true
+			@failed = false
+			@enable (err, started) =>
+				@log "resumed: #{started}"
+
 	disable: (cb) ->
-		acted = @started or @enabled
+		acted = @enabled
 		@enabled = false
 		_end = => @statusString = "disabled"; cb?()
 		if @started then @stop _end

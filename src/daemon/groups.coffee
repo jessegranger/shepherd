@@ -307,6 +307,7 @@ class Proc
 		@disable =>
 			@expected = true
 			@failed = false
+			@healthy = undefined
 			@enable (err, started) =>
 				@log "resumed: #{started}"
 

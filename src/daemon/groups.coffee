@@ -101,12 +101,11 @@ class Group extends Array
 class Proc
 	Proc.cooldown = 200
 	constructor: (@id, @cd, @exec, @port, @group) ->
-		# the time of the most recent start
-		@started = false
-		@enabled = true
+		@expected = false # should this proc be up (right now)
+		@enabled = true # should this proc be up (in general)
+		@started = false # is it (when was it) started
 		@healthy = undefined # used later by health checks
 		@cooldown = Proc.cooldown# this increases after each failed restart
-		@expected = false # should we restart this proc if it exits
 		@failed = false # used to track hard failures, aka "failed" status
 		# expose uptime
 		$.defineProperty @, 'uptime', {

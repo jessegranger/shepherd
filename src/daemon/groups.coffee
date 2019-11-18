@@ -142,16 +142,23 @@ class Proc
 			if @failed or not (@expected and @enabled)
 				verbose "#{@id} giving up on clearPort", { @failed, @expected, @enabled }
 				return done(null, false) # stopped while waiting
+			verbose "Checking for owner of port #{@port}..."
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
 				invalidPort = =>
+					verbose "Marking port #{@port} as invalid."
 					return done @markAsInvalid "invalid port"
-				if owner.uid isnt process.getuid()
+				this_uid = process.getuid()
+				verbose "Checking if owner #{owner.uid} is same as ours #{this_uid}"
+				if owner.uid isnt this_uid
 					return invalidPort()
+				verbose "Checking if owner pid #{owner.pid} is one of our parents..."
 				SlimProcess.getProcessTable (err, procs) =>
 					SlimProcess.visitProcessTree process.pid, (proc) =>
 						invalidPort() if proc.pid is owner.pid
 						null
+					verbose "Owner pid #{owner.pid} is not a parent, killing it..."
+					verbose owner
 					if @statusString isnt "invalid port"
 						@statusString = "killing #{owner.pid}"
 						try process.kill owner.pid, 'SIGTERM'

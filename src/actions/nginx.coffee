@@ -48,8 +48,12 @@ Object.assign module.exports, {
 			ret
 
 		if msg.rn
-			Nginx.sync()
-			return reply "writing nginx config", true
+			Nginx.sync (err, acted) ->
+				if acted
+					return reply "wrote nginx config", true
+				else
+					return reply "did not write config (#{err ? 'none'})", false
+			return
 
 		if msg.g?
 			acted = false

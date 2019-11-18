@@ -1,13 +1,17 @@
 SRC_FILES=$(wildcard src/*.coffee src/*/*.coffee)
 JS_FILES=$(subst src/,lib/,$(SRC_FILES:.coffee=.js))
+COFFEE=./node_modules/.bin/coffee
 
-all: $(JS_FILES)
+all: $(COFFEE) $(JS_FILES)
 
 lib/%.js: src/%.coffee
 	# Compiling $<...
 	@(o=`dirname $@` && \
 		mkdir -p $$o && \
-		coffee -o $$o -c $<)
+		$(COFFEE) -o $$o -c $<)
+
+$(COFFEE):
+	npm install --no-save coffeescript
 
 test: all
 	@./test/all.sh

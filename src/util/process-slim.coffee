@@ -121,7 +121,23 @@ waitForPortOwner = (target, port, timeout, cb) =>
 
 getProcessTable = refresh_process_table
 
-Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable }
+killProcessTree = (pid, signal, cb) =>
+	getProcessTable (err, table) =>
+		for _,proc of table
+			if proc.ppid is pid
+				verbose "[process-slim] Killing child #{proc.pid}"
+				try
+					process.kill proc.pid, signal
+				catch err
+					return cb(err)
+		verbose "[process-slim] Killing parent #{pid}"
+		try
+			process.kill pid, signal
+		catch err
+			return cb(err)
+		cb(null)
+
+Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree }
 
 if require.main is module
 	start = Date.now()

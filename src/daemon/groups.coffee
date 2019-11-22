@@ -75,6 +75,7 @@ class Group extends Array
 		true
 	stop: (cb) ->
 		for proc in @
+			verbose "Setting proc.expected = false"
 			proc.expected = false
 		for proc in @
 			proc.stop()
@@ -142,22 +143,22 @@ class Proc
 			if @failed or not (@expected and @enabled)
 				verbose "#{@id} giving up on clearPort", { @failed, @expected, @enabled }
 				return done(null, false) # stopped while waiting
-			verbose "Checking for owner of port #{@port}..."
+			verbose "#{@id} Checking for owner of port #{@port}..."
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
 				invalidPort = =>
-					verbose "Marking port #{@port} as invalid."
+					verbose "#{@id} Marking port #{@port} as invalid."
 					return done @markAsInvalid "invalid port"
 				this_uid = process.getuid()
-				verbose "Checking if owner #{owner.uid} is same as ours #{this_uid}"
+				verbose "#{@id} Checking if owner #{owner.uid} is same as ours #{this_uid}"
 				if owner.uid isnt this_uid
 					return invalidPort()
-				verbose "Checking if owner pid #{owner.pid} is one of our parents..."
+				verbose "#{@id} Checking if owner pid #{owner.pid} is one of our parents..."
 				SlimProcess.getProcessTable (err, procs) =>
 					SlimProcess.visitProcessTree process.pid, (proc) =>
 						invalidPort() if proc.pid is owner.pid
 						null
-					verbose "Owner pid #{owner.pid} is not a parent, killing it..."
+					verbose "#{@id} Owner pid #{owner.pid} is not a parent, killing it..."
 					verbose owner
 					if @statusString isnt "invalid port"
 						@statusString = "killing #{owner.pid}"
@@ -268,14 +269,23 @@ class Proc
 		@statusString = "stopping"
 		@expected = false
 		if @proc?.pid > 1
+			verbose "#{@id} attaching exit handler"
 			@proc.on 'exit', =>
+				verbose "#{@id} handling exit event"
 				@started = false
 				@statusString = if @enabled then "stopped" else "disabled"
 				if @port
+					verbose "#{@id} asking nginx to reload"
 					Nginx.sync => cb? null, true
 				else
 					cb? null, true
-			try process.kill @proc.pid
+			verbose "#{@id} calling process.kill #{@proc.pid}"
+			try
+				start_kill = $.now
+				SlimProcess.killProcessTree @proc.pid, 'SIGTERM', (err) =>
+					verbose "#{@id} killProcessTree finished after #{$.now - start_kill}ms"
+			catch err
+				verbose "#{@id} Warning: process.kill failed:", err
 			return true
 		@started = false
 		@proc = null

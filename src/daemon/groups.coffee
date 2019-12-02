@@ -139,6 +139,11 @@ class Proc
 			return done(null, false)
 		@expected = true
 		env = Object.assign {}, process.env, { PORT: @port }
+
+		# clearPort will try to kill any other process using our port
+		# but will check some safeties first:
+		# - dont kill processes owned by other users
+		# - dont kill processes managed by our same shepherd
 		clearPort = (cb) =>
 			if @failed or not (@expected and @enabled)
 				verbose "#{@id} giving up on clearPort", { @failed, @expected, @enabled }
@@ -146,24 +151,29 @@ class Proc
 			verbose "#{@id} Checking for owner of port #{@port}..."
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
+				# so, the @port is currently owned...
 				invalidPort = =>
 					verbose "#{@id} Marking port #{@port} as invalid."
 					return done @markAsInvalid "invalid port"
 				this_uid = process.getuid()
 				verbose "#{@id} Checking if owner #{owner.uid} is same as ours #{this_uid}"
+				# 1) - dont kill processes owned by other users
 				if owner.uid isnt this_uid
 					return invalidPort()
-				verbose "#{@id} Checking if owner pid #{owner.pid} is one of our parents..."
+				# 2) - dont kill processes owned by any of our parents
 				SlimProcess.getProcessTable (err, procs) =>
+					verbose "#{@id} Checking if owner pid #{owner.pid} is one of our parents..."
 					SlimProcess.visitProcessTree process.pid, (proc) =>
 						invalidPort() if proc.pid is owner.pid
 						null
-					verbose "#{@id} Owner pid #{owner.pid} is not a parent, killing it..."
-					verbose owner
 					if @statusString isnt "invalid port"
+						verbose "#{@id} Owner pid #{owner.pid} is not managed by shepherd, killing it..."
+						verbose owner
 						@statusString = "killing #{owner.pid}"
 						try process.kill owner.pid, 'SIGTERM'
 						setTimeout (=> clearPort cb), 1000
+					else
+						warn "#{@id} asked for PORT #{@port} but it is in-use by another group in this shepherd"
 			else cb?()
 		retryStart = =>
 			if @started or @failed or not @enabled

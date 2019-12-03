@@ -1,6 +1,7 @@
 { $, echo, warn, verbose } = require '../common'
 ChildProcess = require "child_process"
 
+
 # need to support some queries
 # Wait until a PID (or a child of PID) owns port N
 
@@ -63,7 +64,7 @@ is_child_of = (procs, ppid, pid) ->
 	proc = procs[pid]
 	return true if ppid in [pid, proc.ppid]
 	return false if proc.ppid in [proc.pid,0,1,null,undefined,'','0','1']
-	return is_child_of(procs, ppid, proc.ppid)
+	return is_child_of(procs, proc.ppid, pid)
 
 visitProcessTree = (pid, visit) =>
 	refresh_process_table_if_needed (err, procs) =>
@@ -84,6 +85,32 @@ formatProcess = (proc) =>
 		proc.ports.length and ('[ ' + proc.ports.join(', ') + ' ]') or ("")
 	].join ' '
 
+getChildrenOf = (pid, cb) =>
+	refresh_process_table_if_needed (err, procs) ->
+		children = []
+		recurse = (_pid) ->
+			for _,proc of procs when proc.ppid is _pid
+				children.push proc
+				# list them all depth-first
+				recurse(proc.pid)
+		# start the recursion with our root process
+		recurse(pid)
+		return cb null, children
+
+isValidPid = (pid) -> pid? and isFinite(pid) and (not isNaN pid) and pid > 0
+
+getParentsOf = (pid, cb) =>
+	refresh_process_table_if_needed (err, procs) ->
+		parents = []
+		recurse = (proc) ->
+			ppid = proc.ppid
+			if isValidPid(ppid)
+				parents.push proc
+				recurse procs[ppid]
+		# kick start the recursion
+		recurse procs[pid]
+		return cb null, parents
+
 getPortOwner = (port, cb) =>
 	port = String port
 	refresh_process_table_if_needed (err, procs) =>
@@ -96,24 +123,24 @@ getPortOwner = (port, cb) =>
 		cb null, null
 
 waitForPortOwner = (target, port, timeout, cb) =>
-	target_port = String port
-	_timeout = setTimeout (=>
-		done('timeout')
-	), timeout
-	target.on 'exit', exit_handler = (=> done 'exit')
 	done = (err, proc) =>
 		clearTimeout _timeout
 		target.removeListener 'exit', exit_handler
 		cb?(err, proc)
 		cb = null
+	_timeout = setTimeout (=> done 'timeout'), timeout
+	target.on 'exit', exit_handler = (=> done 'exit')
+	target_port = String port
 	do checkAgain = =>
 		refresh_process_table (err, procs) =>
 			return done(err) if err
 			for _,proc of procs
 				for _port in proc.ports
 					this_port = _port.split(':')[1]
-					if this_port is target_port and is_child_of(procs, target.pid, proc.pid)
-						return done(null, proc)
+					if this_port is target_port
+						verbose "someone (pid #{proc.pid}) listening on target port", target_port
+						if is_child_of(procs, target.pid, proc.pid)
+							return done(null, proc)
 			cb? and setTimeout checkAgain, 400
 			null
 		null
@@ -137,21 +164,11 @@ killProcessTree = (pid, signal, cb) =>
 			return cb(err)
 		cb(null)
 
-Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree }
+Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf }
 
 if require.main is module
 	start = Date.now()
 	refresh_process_table (err, procs) ->
 		$.log (elapsed = Date.now() - start) + "ms"
-		waitForPortOwner 854, 27017, 1000, (err, owner) ->
-			if err is 'timeout' then console.log "TIMED OUT"
-			else
-				console.log formatProcess(owner)
-				visitProcessTree 854, (proc, level) ->
-					console.log '+', $.repeat(". ", level) + formatProcess(proc)
-				cpuSum = memSum = 0
-				visitProcessTree 854, (proc, level) ->
-					cpuSum += proc.pcpu
-					memSum += proc.rss
-				console.log "CPU: #{cpuSum.toFixed(0)}% MEM: #{$.commaize(Math.round(memSum/1024))}MB"
-
+		getChildrenOf 3435, (err, children) ->
+			$(children).select('pid').map($.partial(is_child_of,procs,3435)).log()

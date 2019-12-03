@@ -14,7 +14,7 @@
 	"dependencies": {
 		"bling": "^0.12.0",
 		"chalk": "latest",
-		"handlebars": "latest",
+		"handlebars": "^4.5.3",
 		"shelljs": "latest"
 	}
 }

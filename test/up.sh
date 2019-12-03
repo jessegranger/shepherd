@@ -10,13 +10,13 @@ fi
 
 if it "$*" 'can add and start from the config'; then
 	cd $(mkdeploy)
-	C="$TEMP_PATH/.shep/config"
+	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 19011" > $C
+	echo "add --group test --exec 'node echo_server.js $TEST_NAME' --count 1 --port $(next_port)" > $C
 	echo "start" >> $C
 	check_up
-	check_process "echo_server.js $$"
+	check_process "echo_server.js $TEST_NAME"
 	check_down
 	pass
 fi

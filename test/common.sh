@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
-
 PATH=$PATH:./node_modules/.bin
-TEMP_PATH=$(mktemp -d)
 START_PATH=$(pwd)
 ROOT=$(pwd)/test
 
-PASS_MARK="Pass"
-FAIL_MARK="Fail"
-
-echo TEMP_PATH $TEMP_PATH
+PASS_MARK='Pass'
+FAIL_MARK="FAIL"
+TEST_COUNT=0
 
 function mkdeploy() {
-	rm -rf "$TEMP_PATH/node_modules" "$TEMP_PATH/.shep" "$TEMP_PATH/*.js"
-	mkdir "$TEMP_PATH/node_modules" \
-		&& mkdir "$TEMP_PATH/node_modules/.bin" \
-		&& ln -sf "$START_PATH" "$TEMP_PATH/node_modules/the-shepherd" \
-		&& ln -sf ../the-shepherd/bin/shep "$TEMP_PATH/node_modules/.bin/shep" \
-		&& echo "$TEMP_PATH" \
+	P=$(mktemp -d)
+	rm -rf "$P/*"
+	mkdir "$P/node_modules" \
+		&& mkdir "$P/node_modules/.bin" \
+		&& ln -sf "$START_PATH" "$P/node_modules/the-shepherd" \
+		&& ln -sf ../the-shepherd/bin/shep "$P/node_modules/.bin/shep" \
+		&& echo "$P" \
 		|| (echo "failed to mkdeploy"; exit 1)
 	return 0
 }
@@ -35,8 +33,19 @@ function describe() {
 	echo
 	echo -n $*
 }
+PORT_COUNTER="/tmp/shep_test_counter"
+echo -n 9000 > $PORT_COUNTER
+function next_port() {
+	NEXT_PORT=`cat $PORT_COUNTER`
+	NEXT_PORT=`expr $NEXT_PORT + 1`
+	echo -n $NEXT_PORT > $PORT_COUNTER
+	echo $NEXT_PORT
+}
+TEST_COUNT=0
 function it() {
 	if [ -z "$1" ] || (echo "$2" | grep -q "$1"); then
+		TEST_COUNT=$(( $TEST_COUNT + 1 ))
+		TEST_NAME="$$-$TEST_COUNT"
 		echo
 		echo -n " * $2"
 		return 0
@@ -45,11 +54,12 @@ function it() {
 	fi
 }
 function fail() {
-	SAVETARGET=/tmp/save-$(basename $TEMP_PATH)
+	P="$(pwd)"
+	SAVETARGET=/tmp/save-$(basename $P)
 	echo " $FAIL_MARK"
 	echo "Saving snapshot of the test into $SAVETARGET"
 	mkdir $SAVETARGET
-	cp -ar $TEMP_PATH $SAVETARGET
+	cp -ar $P $SAVETARGET
 	die $*
 }
 function check() {
@@ -80,9 +90,10 @@ function check_init() {
 }
 function check_up() {
 	# echo -n "check_up"
+	P="$(pwd)"
 	shep up --verbose | grep -q "Starting"
-	check [ "$?" -eq 0 -a -e "$TEMP_PATH/.shep/socket" -a -e "$TEMP_PATH/.shep/pid" -a -e "$TEMP_PATH/.shep/log" ]
-	sleep 3
+	check [ "$?" -eq 0 -a -e "$P/.shep/socket" -a -e "$P/.shep/pid" -a -e "$P/.shep/log" ]
+	sleep 4
 }
 function check_down() {
 	# echo -n "check_down"
@@ -95,9 +106,11 @@ function pass() {
 }
 
 function cleanup() {
+	P="$(pwd)"
 	killall node &> /dev/null || true
-	echo "Cleaning up $TEMP_PATH"
-	[ -d "$TEMP_PATH" ] && /bin/rm -r "$TEMP_PATH"
+	echo
+	echo "Cleaning up $P"
+	[ -n "$P" -a -d "$P" ] && /bin/rm -r "$P"
 }
 trap cleanup EXIT
 # trap cleanup ERR

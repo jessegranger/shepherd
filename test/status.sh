@@ -9,10 +9,10 @@ fi
 
 if it "$*" 'should list - unstarted'; then
 	cd $(mkdeploy)
-	C="$TEMP_PATH/.shep/config"
+	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 19011" > $C
+	echo "add --group test --exec 'node echo_server.js $TEST_NAME' --count 1 --port $(next_port)" > $C
 	check_up
 	OUTPUT=$(shep status)
 	check [ "$?" -eq 0 ]
@@ -26,13 +26,13 @@ fi
 
 if it "$*" 'should list - started'; then
 	cd $(mkdeploy)
-	C="$TEMP_PATH/.shep/config"
+	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group test --exec 'node echo_server.js $$' --count 1 --port 19011" > $C
+	echo "add --group test --exec 'node echo_server.js $TEST_NAME' --count 1 --port $(next_port)" > $C
 	echo "start" >> $C
 	check_up
-	check_process "echo_server.js $$" || cat "$TEMP_PATH/.shep/log"
+	check_process "echo_server.js $TEST_NAME" || cat "$(pwd)/.shep/log"
 	OUTPUT=$(shep status)
 	check [ "$?" -eq 0 ]
 	check_contains "$OUTPUT" "Status: online"
@@ -45,14 +45,14 @@ fi
 
 if it "$*" 'can show status of a group'; then
 	cd $(mkdeploy)
-	C="$TEMP_PATH/.shep/config"
+	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group groupA --exec 'node echo_server.js A $$' --count 1 --port 19011" > $C
-	echo "add --group groupB --exec 'node echo_server.js B $$' --count 1 --port 19021" >> $C
+	echo "add --group groupA --exec 'node echo_server.js A $TEST_NAME' --count 1 --port $(next_port)" > $C
+	echo "add --group groupB --exec 'node echo_server.js B $TEST_NAME' --count 1 --port $(next_port)" >> $C
 	echo "start" >> $C
 	check_up
-	check_process "echo_server.js A $$"
+	check_process "echo_server.js A $TEST_NAME"
 	OUTPUT=$(shep status --group groupA)
 	check [ "$?" -eq 0 ]
 	check_contains "$OUTPUT" "Status: online"
@@ -65,14 +65,14 @@ fi
 
 if it "$*" 'can show status of an instance'; then
 	cd $(mkdeploy)
-	C="$TEMP_PATH/.shep/config"
+	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
-	echo "add --group groupA --exec 'node echo_server.js A $$' --count 1 --port 19011" > $C
-	echo "add --group groupB --exec 'node echo_server.js B $$' --count 1 --port 19021" >> $C
+	echo "add --group groupA --exec 'node echo_server.js A $TEST_NAME' --count 1 --port $(next_port)" > $C
+	echo "add --group groupB --exec 'node echo_server.js B $TEST_NAME' --count 1 --port $(next_port)" >> $C
 	echo "start" >> $C
 	check_up
-	check_process "echo_server.js A $$"
+	check_process "echo_server.js A $TEST_NAME"
 	OUTPUT=$(shep status --instance groupB-0)
 	check [ "$?" -eq 0 ]
 	check_contains "$OUTPUT" "Status: online"

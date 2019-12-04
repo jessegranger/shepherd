@@ -1,32 +1,20 @@
 {
 	"name": "the-shepherd",
-	"version": "0.2.34",
+	"version": "0.3.22",
 	"description": "Control a herd of wild processes.",
-	"main": "lib/herd.js",
 	"bin": {
-		"shepherd": "bin/shepherd"
+		"shep": "bin/shep"
 	},
 	"scripts": {
 		"test": "make test",
 		"prepare": "make"
 	},
-	"author": "Jesse Dailey <jesse.dailey@gmail.com>",
-	"repository": "https://github.com/jldailey/shepherd.git",
+	"author": "Jesse Granger <jesse_granger@fastmail.com>",
+	"repository": "https://github.com/jessegranger/shepherd.git",
 	"dependencies": {
-		"basic-auth":    "latest",
-		"bling":         "0.10.5",
-		"commander":     "latest",
-		"daemon":        "latest",
-		"express":       "latest",
-		"handlebars":    "latest",
-		"hjson":         "latest",
-		"jade":          "latest",
-		"rabbit-pubsub": "latest",
-		"loggly":        "latest",
-		"mongodb":       "latest",
-		"serve-static":  "latest",
-		"shelljs":       "latest",
-		"JSV":           "latest",
-		"cson":          "latest"
+		"bling": "^0.12.0",
+		"chalk": "latest",
+		"handlebars": "^4.5.3",
+		"shelljs": "latest"
 	}
 }

@@ -1,80 +1,152 @@
-#!/bin/bash
+#!/usr/bin/env bash
+PATH=$PATH:./node_modules/.bin
+START_PATH=$(pwd)
+ROOT=$(pwd)/test
 
-ROOT=`dirname $0`/..
-TEST_NAME=`basename $0 | sed s/\.sh//`
-JSON_FILE=/tmp/${TEST_NAME}.json
-COFFEE_FILE=/tmp/${TEST_NAME}.coffee
-PID_FILE=/tmp/${TEST_NAME}.pid
-LOG_FILE=/tmp/${TEST_NAME}.log
-echo > $LOG_FILE
+PASS_MARK='Pass'
+FAIL_MARK="FAIL"
+TEST_COUNT=0
 
-VERBOSE=false
-if [ "$1" == "verbose" ]; then
-	VERBOSE=true
-fi
-
-function log {
-	if $VERBOSE; then echo $1; fi
-	echo TEST: $1 >> $LOG_FILE
+function mkdeploy() {
+	P=$(mktemp -d)
+	rm -rf "$P/*"
+	mkdir "$P/node_modules" \
+		&& mkdir "$P/node_modules/.bin" \
+		&& ln -sf "$START_PATH" "$P/node_modules/the-shepherd" \
+		&& ln -sf ../the-shepherd/bin/shep "$P/node_modules/.bin/shep" \
+		&& echo "$P" \
+		|| (echo "failed to mkdeploy"; exit 1)
+	return 0
 }
 
-function assert_notequal {
-	local a=$1
-	local b=$2
-	if [ "$a" != "$b" ]; then
-		echo "PASS"
+function dotsleep() {
+	ms=$1
+	if [ "$ms" -gt 0 ]; then
+		sleep 1
+		echo -n .
+		dotsleep `expr $ms - 1`
+	fi
+	return 0
+}
+
+function describe() {
+	echo
+	echo -n $*
+}
+PORT_COUNTER="/tmp/shep_test_counter"
+echo -n 9000 > $PORT_COUNTER
+function next_port() {
+	NEXT_PORT=`cat $PORT_COUNTER`
+	NEXT_PORT=`expr $NEXT_PORT + 1`
+	echo -n $NEXT_PORT > $PORT_COUNTER
+	echo $NEXT_PORT
+}
+TEST_COUNT=0
+function it() {
+	if [ -z "$1" ] || (echo "$2" | grep -q "$1"); then
+		TEST_COUNT=$(( $TEST_COUNT + 1 ))
+		TEST_NAME="$$-$TEST_COUNT"
+		echo
+		echo -n " * $2"
+		return 0
 	else
-		echo "FAIL: '$b' should != '$a'"
+		return 1
 	fi
 }
-
-mkdir -p `dirname $LOG_FILE`
-touch $LOG_FILE
-
-function shepherd_start {
-	log "Launching shepherd..."
-	$ROOT/bin/shepherd -v -d -o $LOG_FILE -f $JSON_FILE -p $PID_FILE
-	sleep 6
-	return `cat $PID_FILE`
+function fail() {
+	P="$(pwd)"
+	SAVETARGET=/tmp/save-$(basename $P)
+	echo " $FAIL_MARK"
+	echo "Saving snapshot of the test into $SAVETARGET"
+	mkdir $SAVETARGET
+	cp -ar $P $SAVETARGET
+	die $*
+}
+function check() {
+	$* && pass || fail " $FAIL_MARK"
+}
+function check_file_contains() {
+	# echo -n check_file_contains $1 $2
+	(cat "$1" | grep -q "$2") && pass || (cat $1 && fail "Expected: $2")
+}
+function check_contains() {
+	# echo -n check_contains $2 $3
+	(echo "$1" | grep -q "$2") && pass || (echo $1 && fail "Expected: $2")
+}
+function check_process() {
+	# echo -n check_process $*
+	ps -eo pid,ppid,command | grep -v grep | grep -q "$*"
+	check [ "$?" -eq 0 ]
+}
+function check_no_process() {
+	# echo -n "check_no_process: $* "
+	PS=`ps -eo pid,ppid,command | grep -v grep | grep "$*"`
+	[ "$?" -eq 1 ] && pass || fail "Unexpected process: $* in: $PS"
+}
+function check_init() {
+	# echo -n "check_init"
+	shep init -q
+	check [ "$?" -eq 0 ]
+}
+function check_up() {
+	# echo -n "check_up"
+	P="$(pwd)"
+	shep up --verbose | grep -q "Starting"
+	check [ "$?" -eq 0 -a -e "$P/.shep/socket" -a -e "$P/.shep/pid" -a -e "$P/.shep/log" ]
+	sleep 4
+}
+function check_down() {
+	# echo -n "check_down"
+	shep down | grep -q "Stopping"
+	check [ "$?" -eq 0 ]
+}
+function pass() {
+	echo -n " $PASS_MARK"
+	return 0
 }
 
-function shepherd_stop {
-	log "Stopping shepherd..."
-	curl -u demo:demo http://127.0.0.1:9001/stop &> /dev/null
-	rm -f $PID_FILE $JSON_FILE $COFFEE_FILE
+function cleanup() {
+	P="$(pwd)"
+	killall node &> /dev/null || true
+	echo
+	echo "Cleaning up $P"
+	[ -n "$P" -a -d "$P" ] && /bin/rm -r "$P"
+}
+trap cleanup EXIT
+# trap cleanup ERR
+
+function die() {
+	echo "die: $*"
+	exit 1
 }
 
-function kill_owner {
-	local port=$1
-	local pid=`lsof -Pni :${port} | grep :${port} | awk '{print $2}'`
-	if [ -n "${pid}" ]; then
-		log "Killing $pid (to clear port $port)"
-		kill -9 ${pid}
-	fi
-}
+echo_server=$(cat <<EOF
+s= require('net').Server().listen({port: parseInt(process.env.PORT)});
+s.on('error', (err) => { console.error(err); process.exit(1) });
+s.on('connection', (client) => { client.on('data', (msg) => { client.write(process.argv[2] + " " + String(data)) }) });
+EOF
+)
 
-function get_owners {
-	local port=$1
-	echo `lsof -Pni :${port} | grep :${port} | awk '{print $2}'`
-}
+crash_server="throw new Error('tis but a scratch')"
 
-function check_output {
-	local port=$1
-	local owner=$(get_owners $port)
-	local expected="{\"PORT\": $port, \"PID\": \"$owner\"}"
-	local output=`curl -s http://127.0.0.1:$port/`
-	if [ "$output" != "$expected" ]; then
-		echo "Unexpected output: '" $output "' expected: '" $expected "'"
-		shepherd_stop
-		exit 1
-	else
-		echo "PASS"
-	fi
-}
+simple_worker=$(cat <<EOF
+setInterval(()=>{ console.log("simple_worker is Working..."); }, 3000)
+setTimeout(()=>{ process.exit(0); }, 300000)
+EOF
+)
 
-if [ "$0" == "./common.sh" ]; then
-	port=$1
-	echo Testing common.sh...
-	owner=$(get_owners $port)
-	echo $owner
-fi
+bad_status_server=$(cat <<EOF
+n = 0; require('http').createServer((req, res) => {
+	res.statusCode = (++n % 2 == 0 ? 500 : 200);
+	res.end()
+}).listen({port: parseInt(process.env.PORT)});
+EOF
+)
+
+bad_text_server=$(cat <<EOF
+n = 0; require('http').createServer((req, res) => {
+	res.statusCode = 200;
+	res.end( (++n % 2 == 0 ? "Fail" : "OK") )
+}).listen({port: parseInt(process.env.PORT)});
+EOF
+)

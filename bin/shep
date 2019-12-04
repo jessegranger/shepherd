@@ -1,0 +1,21 @@
+#!/bin/bash
+LINK=$(readlink "$0")
+if [ -n "$LINK" ]; then
+  SCRIPT_PATH="$(dirname "$0")/$(dirname "$LINK")/.."
+else
+	SCRIPT_PATH="$(dirname "$0")/.."
+fi
+
+ARGS=
+while [ -n "$1" ];
+do
+	ARG=`echo "$1" | sed 's/"/\\\\"/g'`
+	if ( echo "$ARG" | grep ' ' -s ); then
+		ARGS+="\"$ARG\" "
+	else
+		ARGS+="$ARG "
+	fi
+	shift
+done
+
+node "$SCRIPT_PATH/lib/client/index.js" $ARGS

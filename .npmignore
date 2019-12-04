@@ -1,3 +1,7 @@
 node_modules
-.vagrant
-test/*.pass
+Makefile
+.*
+test/*
+src/*
+static/*
+release.sh

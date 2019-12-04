@@ -149,19 +149,19 @@ waitForPortOwner = (target, port, timeout, cb) =>
 getProcessTable = refresh_process_table
 
 killProcessTree = (pid, signal, cb) =>
+	to_kill = []
 	getProcessTable (err, table) =>
-		for _,proc of table
-			if proc.ppid is pid
-				verbose "[process-slim] Killing child #{proc.pid}"
-				try
-					process.kill proc.pid, signal
-				catch err
-					return cb(err)
-		verbose "[process-slim] Killing parent #{pid}"
-		try
-			process.kill pid, signal
-		catch err
-			return cb(err)
+		recurse = (_pid) =>
+			for _,proc of table
+				if proc.ppid is _pid
+					verbose "[process-slim] Killing child #{proc.pid} of parent #{_pid}"
+					to_kill.push proc.pid
+					recurse(proc.pid)
+		recurse(pid)
+		echo "[process-slim] Killing all:", to_kill
+		for pid in to_kill
+			try
+				process.kill pid, signal
 		cb(null)
 
 Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf }

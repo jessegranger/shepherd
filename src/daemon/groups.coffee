@@ -108,6 +108,7 @@ class Proc
 		@healthy = undefined # used later by health checks
 		@cooldown = Proc.cooldown# this increases after each failed restart
 		@failed = false # used to track hard failures, aka "failed" status
+		@checkResumeTimeout = null
 		# expose uptime
 		$.defineProperty @, 'uptime', {
 			get: => if @started then ($.now - @started) else 0
@@ -218,6 +219,10 @@ class Proc
 				@proc = ChildProcess.spawn @exec, opts
 				@expected = true # tell the 'exit' handler to bring us back up if we die
 				finishStarting = =>
+					if @checkResumeTimeout isnt null
+						@log "Cancelling checkResumeTimeout..."
+						clearTimeout @checkResumeTimeout
+						@checkResumeTimeout = null
 					@started = $.now
 					@failed = false
 					@cooldown = Proc.cooldown
@@ -240,7 +245,7 @@ class Proc
 								return @stop => done(null, false)
 							switch err
 								when 'exit'
-									warn "#{@id} exited immediately, will not retry."
+									warn "#{@id} exited immediately, will attempt to resume."
 									@proc = null
 									return @stop => @disable =>
 										@markAsFailed()
@@ -266,9 +271,9 @@ class Proc
 					if @proc?.pid then try @proc?.unref?()
 					@proc = undefined
 					if @expected is false # it went down and we dont care
-						@statusString = "exit(#{code})" # just report it
+						@statusString = "exit(#{code}) ok" # just report it
 					else if @statusString is "starting" # it went down right after launch
-						echo "#{@id} exited immediately, will not retry."
+						echo "#{@id} exited immediately, attempting fail recovery."
 						@disable => @markAsFailed()
 					else # it should be up, but went down
 						echo "#{@id} Unexpected exit, restarting..."
@@ -277,6 +282,10 @@ class Proc
 
 	stop: (cb) ->
 		@statusString = "stopping"
+		if @checkResumeTimeout isnt null
+			@log "Cancelling checkResumeTimeout..."
+			clearTimeout @checkResumeTimeout
+			@checkResumeTimeout = null
 		@expected = false
 		if @proc?.pid > 1
 			verbose "#{@id} attaching exit handler"
@@ -317,10 +326,11 @@ class Proc
 		else cb?(null, false)
 		acted
 
-	markAsFailed: () ->
+	markAsFailed: (reason="failed") ->
 		@failed = true
-		setTimeout (=> @checkForFailResume()), minutes(2)
-		@markAsInvalid "failed"
+		@log "Scheduling resume attempt in 2 minutes..."
+		@checkResumeTimeout = setTimeout (=> @checkForFailResume()), minutes(2)
+		@markAsInvalid reason
 
 	markAsInvalid: (reason) ->
 		@enabled = @expected = @started = @healthy = false

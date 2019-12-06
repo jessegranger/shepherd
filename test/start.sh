@@ -90,23 +90,3 @@ if it "$*" 'should keep instance up if it dies'; then
 	check_down
 	pass
 fi
-
-if it "$*" 'should handle an instant crashing process'; then
-	cd $(mkdeploy)
-	C="$(pwd)/.shep/config"
-	L="$(pwd)/.shep/log"
-	check_init
-	echo "process.exit(1)" > server.js
-	echo "$echo_server" > echo_server.js
-	echo "add --group crash --exec 'node server.js $TEST_NAME' --count 1" > $C
-	echo "add --group echo --exec 'node echo_server.js $TEST_NAME' --count 2 --port $(next_port)" >> $C
-	check_up
-	check_contains "`shep start --instance crash-0`" "Starting instance crash-0"
-	sleep 1
-	check_file_contains "$L" "crash-0 exited immediately, will not retry."
-	check_contains "`shep start --instance echo-0`" "Starting instance echo-0"
-	sleep 1
-	check_contains "`shep status echo-0`" " started"
-	check_down
-	pass
-fi

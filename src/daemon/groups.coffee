@@ -107,8 +107,6 @@ class Proc
 		@started = false # is it (when was it) started
 		@healthy = undefined # used later by health checks
 		@cooldown = Proc.cooldown# this increases after each failed restart
-		@failed = false # used to track hard failures, aka "failed" status
-		@checkResumeTimeout = null
 		# expose uptime
 		$.defineProperty @, 'uptime', {
 			get: => if @started then ($.now - @started) else 0
@@ -132,9 +130,6 @@ class Proc
 		if @started
 			verbose "#{@id} already started, skipping."
 			return done(null, false)
-		if @failed
-			verbose "#{@id} in failed state, skipping."
-			return done(null, false)
 		if not @enabled
 			verbose "#{@id} not enabled, skipping."
 			return done(null, false)
@@ -146,8 +141,8 @@ class Proc
 		# - dont kill processes owned by other users
 		# - dont kill processes managed by our same shepherd
 		clearPort = (cb) =>
-			if @failed or not (@expected and @enabled)
-				verbose "#{@id} giving up on clearPort", { @failed, @expected, @enabled }
+			if not (@expected and @enabled)
+				verbose "#{@id} giving up on clearPort", { @expected, @enabled }
 				return done(null, false) # stopped while waiting
 			verbose "#{@id} Checking for owner of port #{@port}..."
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
@@ -171,22 +166,22 @@ class Proc
 						verbose "#{@id} Owner pid #{owner.pid} is not managed by shepherd, killing it..."
 						verbose owner
 						@statusString = "killing #{owner.pid}"
-						try process.kill owner.pid, 'SIGTERM'
-						setTimeout (=> clearPort cb), 1000
+						SlimProcess.killProcessTree owner.pid, 'SIGTERM', (err) =>
+							if err
+								warn "#{@id} failed to kill other owner of port #{@port}: owner #{owner.pid}"
+								warn err
+							setTimeout (=> clearPort cb), 1000
 					else
 						warn "#{@id} asked for PORT #{@port} but it is in-use by another group in this shepherd"
 			else cb?()
 		retryStart = =>
-			if @started or @failed or not @enabled
+			if @started or not @enabled
 				return done(null, false)
-			@cooldown = (Math.min 30000, @cooldown * 2)
-			@statusString = "waiting #{@cooldown}"
+			@cooldown = (Math.min 10000, @cooldown * 2)
+			@statusString = "waiting #{@cooldown}ms"
 			setTimeout doStart, @cooldown
 			return true
 		do doStart = =>
-			if @failed
-				verbose "#{@id} refusing to start failed instance."
-				return done(null, false)
 			if @started
 				verbose "#{@id} ignoring start of already started instance."
 				return done(null, false)
@@ -196,9 +191,6 @@ class Proc
 			clearPort (err) =>
 				if err
 					verbose "#{@id} aborting start while inside clearPort", { err }
-					return done(null, false)
-				if @failed
-					verbose "#{@id} aborting start while inside clearPort", { @failed }
 					return done(null, false)
 				if not @expected
 					verbose "#{@id} aborting start while inside clearPort", { @expected }
@@ -219,12 +211,7 @@ class Proc
 				@proc = ChildProcess.spawn @exec, opts
 				@expected = true # tell the 'exit' handler to bring us back up if we die
 				finishStarting = =>
-					if @checkResumeTimeout isnt null
-						@log "Cancelling checkResumeTimeout..."
-						clearTimeout @checkResumeTimeout
-						@checkResumeTimeout = null
 					@started = $.now
-					@failed = false
 					@cooldown = Proc.cooldown
 					@statusString = "started"
 					if @port
@@ -241,21 +228,20 @@ class Proc
 						echo "Waiting for port #{@port} to be owned by #{@proc.pid} (will wait #{@group.grace} ms)"
 						SlimProcess.waitForPortOwner @proc, @port, @group.grace, (err, owner) =>
 							unless @expected and @enabled # stopped while waiting?
-								echo "#{@id} giving up after waiting for port because", @expected, @enabled
+								echo "#{@id} abort requested while waiting for port", { @expected, @enabled }
 								return @stop => done(null, false)
 							switch err
 								when 'exit'
-									warn "#{@id} exited immediately, will attempt to resume."
+									warn "#{@id} exited immediately, attempting to resume."
 									@proc = null
-									return @stop => @disable =>
-										@markAsFailed()
-										done(null, false)
+									return @stop retryStart
 								when 'timeout'
 									echo "#{@id} did not listen on port #{@port} within the timeout: #{@group.grace}ms"
-									return @stop => done(null, false)
+									return @stop retryStart
 								else
 									if err?
-										echo "Failed to find port owner,", err, "after", (Date.now() - _s) + "ms"
+										echo "#{@id} failed to find port owner after", (Date.now() - _s) + "ms"
+										warn err
 										return @stop retryStart
 							finishStarting()
 					), 50
@@ -272,9 +258,6 @@ class Proc
 					@proc = undefined
 					if @expected is false # it went down and we dont care
 						@statusString = "exit(#{code}) ok" # just report it
-					else if @statusString is "starting" # it went down right after launch
-						echo "#{@id} exited immediately, attempting fail recovery."
-						@disable => @markAsFailed()
 					else # it should be up, but went down
 						echo "#{@id} Unexpected exit, restarting..."
 						return retryStart()
@@ -309,7 +292,6 @@ class Proc
 		@started = false
 		@proc = null
 		@statusString = switch true
-			when @failed then "failed"
 			when @enabled then "stopped"
 			else "disabled"
 		cb? null, false
@@ -326,26 +308,10 @@ class Proc
 		else cb?(null, false)
 		acted
 
-	markAsFailed: (reason="failed") ->
-		@failed = true
-		@log "Scheduling resume attempt in 2 minutes..."
-		@checkResumeTimeout = setTimeout (=> @checkForFailResume()), minutes(2)
-		@markAsInvalid reason
-
 	markAsInvalid: (reason) ->
 		@enabled = @expected = @started = @healthy = false
 		@statusString = reason
 		false
-
-	checkForFailResume: ->
-		return if @started or not @failed
-		@log "Attempting to resume from failure..."
-		@disable =>
-			@expected = true
-			@failed = false
-			@healthy = undefined
-			@enable (err, started) =>
-				@log "resumed: #{started}"
 
 	disable: (cb) ->
 		acted = @enabled

@@ -4,7 +4,7 @@ COFFEE=./node_modules/.bin/coffee
 
 all: $(COFFEE) $(JS_FILES)
 
-lib/%.js: src/%.coffee
+lib/%.js: src/%.coffee package-lock.json
 	# Compiling $<...
 	@(o=`dirname $@` && \
 		mkdir -p $$o && \

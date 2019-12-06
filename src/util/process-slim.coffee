@@ -152,10 +152,10 @@ killProcessTree = (pid, signal, cb) =>
 	to_kill = []
 	getProcessTable (err, table) =>
 		recurse = (_pid) =>
+			to_kill.push _pid
 			for _,proc of table
 				if proc.ppid is _pid
 					verbose "[process-slim] Killing child #{proc.pid} of parent #{_pid}"
-					to_kill.push proc.pid
 					recurse(proc.pid)
 		recurse(pid)
 		echo "[process-slim] Killing all:", to_kill

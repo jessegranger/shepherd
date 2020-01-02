@@ -75,9 +75,6 @@ class Group extends Array
 		true
 	stop: (cb) ->
 		for proc in @
-			verbose "Setting proc.expected = false"
-			proc.expected = false
-		for proc in @
 			proc.stop()
 		cb?(null, true)
 	markAsInvalid: (reason) ->
@@ -264,12 +261,12 @@ class Proc
 					return true
 
 	stop: (cb) ->
+		@expected = false
 		@statusString = "stopping"
 		if @checkResumeTimeout isnt null
 			@log "Cancelling checkResumeTimeout..."
 			clearTimeout @checkResumeTimeout
 			@checkResumeTimeout = null
-		@expected = false
 		if @proc?.pid > 1
 			verbose "#{@id} attaching exit handler"
 			@proc.on 'exit', =>
@@ -278,16 +275,20 @@ class Proc
 				@statusString = if @enabled then "stopped" else "disabled"
 				if @port
 					verbose "#{@id} asking nginx to reload"
-					Nginx.sync => cb? null, true
+					Nginx.sync =>
+						verbose "#{@id} nginx reload complete"
+						cb? null, true
 				else
 					cb? null, true
-			verbose "#{@id} calling process.kill #{@proc.pid}"
+			verbose "#{@id} calling killProcessTree from root #{@proc.pid}"
 			try
 				start_kill = $.now
 				SlimProcess.killProcessTree @proc.pid, 'SIGTERM', (err) =>
+					if err
+						warn "#{@id} killProcessTree error: #{err}"
 					verbose "#{@id} killProcessTree finished after #{$.now - start_kill}ms"
 			catch err
-				verbose "#{@id} Warning: process.kill failed:", err
+				warn "#{@id} killProcessTree threw exception:", err
 			return true
 		@started = false
 		@proc = null

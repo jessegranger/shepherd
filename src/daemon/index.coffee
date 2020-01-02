@@ -18,7 +18,11 @@ Output = require './output'
 { readConfig } = require '../util/config'
 ChildProcess = require 'child_process'
 
-exit_soon = (n, ms=200) => setTimeout (=> process.exit n), ms
+exit_soon = (n, ms=200) =>
+	setTimeout (=>
+		verbose "Calling process.exit(#{n}), after delay of #{ms}ms"
+		process.exit n
+	), ms
 die = (msg...) ->
 	console.error msg...
 	exit_soon 1
@@ -42,14 +46,22 @@ handleMessage = (msg, client, cb) ->
 exists = (path) -> try (stat = Fs.statSync expandPath path).isFile() or stat.isSocket() catch then false
 
 doStop = (exit) ->
+	verbose "Daemon.doStop(#{exit})"
 	if pid = readPid()
+		verbose "Sending stop message to all groups..."
 		Actions.stop.onMessage({}) # send a stop command to all running instances
-		# give them a little time to exit gracefully
-		# then kill the pid from the pid file (our own?)
-		result = Shell.exec "kill #{pid}", { silent: true, async: false } # use Shell.exec for easier stderr peek after
-		if result.stderr.indexOf("No such process") > -1
-			try Fs.unlinkSync(expandPath pidFile)
-			try Fs.unlinkSync(expandPath socketFile)
+		$.delay 1000, -> # give them a little time to exit gracefully
+			verbose "Killing daemon processs..."
+			# then kill the pid from the pid file
+			result = Shell.exec "kill #{pid}", { silent: true, async: false } # use Shell.exec for easier stderr peek after
+			if result.stderr.indexOf("No such process") > -1
+				verbose "No such process: forcing unlink"
+				verbose "Unlink: ", expandPath pidFile
+				try Fs.unlinkSync(expandPath pidFile)
+				verbose "Unlink: ", expandPath socketFile
+				try Fs.unlinkSync(expandPath socketFile)
+	else
+		verbose "No PID file."
 	echo "Status: offline."
 	if exit
 		return exit_soon 0
@@ -61,17 +73,21 @@ doStatus = ->
 started = false
 runDaemon = => # in the foreground
 
-	unless pidFile and socketFile
-		return die "Daemon does not have a base path."
+	unless pidFile
+		return die "Daemon has no pidFile configured."
 
-	if exists(pidFile)
-		return die "Already running as PID:" + readPid()
-
-	if exists(socketFile)
-		return die "Socket file still exists:" + socketFile
+	unless socketFile
+		return die "Daemon has no socketFile configured."
 
 	_pidFile = expandPath pidFile
 	_socketFile = expandPath socketFile
+
+	if exists(_pidFile)
+		return die "Already running as PID:" + readPid()
+
+	if exists(_socketFile)
+		return die "Socket file still exists:" + socketFile
+
 	Fs.writeFile _pidFile, process.pid, (err) =>
 		if err then return die "Failed to write pid file:", err
 		Output.setOutput outputFile, (err) =>
@@ -95,18 +111,25 @@ runDaemon = => # in the foreground
 						for k,v of msg when v? then _msg[k] = v
 						echo "Command handled:", _msg, "in", (Date.now() - start), "ms"
 			shutdown = (signal) -> ->
-				try echo "Shutting down...", signal
-				try socket.close()
-				Groups.forEach (group) -> # TODO: Groups.shutdown()
-					for proc in group
-						proc.expected = false
-					null
+				echo "#{signal}: Shutting down..."
+				verbose "#{signal}: Closing master socket..."
+				try
+					socket.close()
+				catch err
+					warn "Failed to close socket: ", err
+				verbose "#{signal}: Stopping all groups..."
 				Groups.forEach (group) -> group.stop()
-				try Fs.unlinkSync(_pidFile)
+				verbose "#{signal}: Unlinking PID file..."
+				try
+					Fs.unlinkSync(_pidFile)
+				catch err
+					warn "Failed to unlink pid file (#{_pidFile}):", err
 				if signal isnt 'exit'
-					return exit_soon 0
+					verbose "#{signal}: Scheduling delayed exit..."
+					return exit_soon 0, 2000
 				null
 			for sig in ['SIGINT','SIGTERM','exit']
+				verbose "Signal #{sig}: attaching handler..."
 				process.on sig, shutdown(sig) 
 			readConfig()
 			started = true

@@ -66,7 +66,7 @@ generate = (t)=>
 nop = ->
 writeNginxFile = (cb) =>
 	cb or= nop
-	return cb(null, false) if disabled
+	return cb('disabled', false) if disabled
 	echo "Saving nginx file: #{expandPath Files.nginxFile}..."
 	start = Date.now()
 	inputFile = expandPath Files.nginxTemplate
@@ -74,13 +74,13 @@ writeNginxFile = (cb) =>
 	Fs.readFile inputFile, (err, data) ->
 		if err
 			warn "Failed to read nginx template:", inputFile, err
-			return cb?(null, false)
+			return cb(err, false)
 		text = generate Handlebars.compile data.toString('utf8')
 		outputFile = expandPath Files.nginxFile
 		verbose "Writing nginx file...", outputFile
 		Fs.writeFile outputFile, text, (err) ->
 			verbose "writeNginxFile took #{Date.now() - start} ms"
-			cb(err, not err?)
+			cb(err, true)
 		null
 	null
 

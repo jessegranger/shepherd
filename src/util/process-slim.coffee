@@ -148,27 +148,33 @@ waitForPortOwner = (target, port, timeout, cb) =>
 
 getProcessTable = refresh_process_table
 
-killProcessTree = (pid, signal, cb) =>
-	to_kill = []
+getProcessTree = (pid, cb) =>
+	ret = []
 	getProcessTable (err, table) =>
 		recurse = (_pid) =>
-			to_kill.push _pid
+			ret.push _pid
 			for _,proc of table
 				if proc.ppid is _pid
-					verbose "[process-slim] Killing child #{proc.pid} of parent #{_pid}"
 					recurse(proc.pid)
 		recurse(pid)
-		echo "[process-slim] Killing all:", to_kill
-		for pid in to_kill
+		cb(ret)
+
+killProcessTree = (pid, signal, cb) =>
+	getProcessTree pid, (pids) =>
+		for pid in pids
 			try
+				echo "[process-slim] process.kill(#{pid}, #{signal})"
 				process.kill pid, signal
+			catch err
+				warn "[process-slim] process.kill(#{pid}) failed: #{err}"
 		cb(null)
+
 
 Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf }
 
 if require.main is module
 	start = Date.now()
-	refresh_process_table (err, procs) ->
-		$.log (elapsed = Date.now() - start) + "ms"
-		getChildrenOf 3435, (err, children) ->
-			$(children).select('pid').map($.partial(is_child_of,procs,3435)).log()
+	getProcessTree 27824, (list) ->
+		for pid in list
+			console.log pid
+

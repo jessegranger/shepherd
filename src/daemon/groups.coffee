@@ -131,6 +131,7 @@ class Proc
 			verbose "#{@id} not enabled, skipping."
 			return done(null, false)
 		@expected = true
+		@healthy = undefined
 		env = Object.assign {}, process.env, { PORT: @port }
 
 		# clearPort will try to kill any other process using our port

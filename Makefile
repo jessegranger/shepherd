@@ -18,6 +18,10 @@ test: all
 
 clean:
 	rm -rf lib/*
+	[ -f .shep/pid ] && ./bin/shep down || true
+	rm -f .shep/socket || true
+	rm -f .shep/pid || true
+	[ -d .shep ] && echo > .shep/log || true
 
 force:
 	make -B all

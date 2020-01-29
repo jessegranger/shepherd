@@ -69,7 +69,7 @@ Object.assign module.exports, {
 							rss += _p.rss
 					_group.procs.push [ proc.id, proc.proc?.pid, proc.port, proc.uptime, proc.healthy, proc.enabled, proc.statusString, pcpu, rss ]
 			output.send = Date.now()
-			client.write $.TNET.stringify output
+			client?.write $.TNET.stringify output
 			cb? null, true
 		return false
 }

@@ -14,7 +14,11 @@ outputStream = new Writable {
 		fileStream.write chunk, enc, cb
 	writev: (chunks, cb) ->
 		return cb?(null) unless outputFile and fileStream
-		fileStream.write $(chunks).select('chunk').join(''), chunks[0].enc, cb
+		if chunks?.length > 0
+			line = ''
+			for item in chunks
+				line += item.chunk
+			fileStream.write line, chunks[0].enc, cb
 		null
 }
 

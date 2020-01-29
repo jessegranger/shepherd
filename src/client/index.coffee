@@ -128,7 +128,8 @@ switch c # some commands get handled without connecting to the daemon
 			else
 				sendServerCmd 'status', =>
 					exit_soon 0
-	when 'down' then Daemon.doStop(true)
+	# disabled special 'down' case, so that we create a 'down' message in the 'else' case below
+	# when 'down' then Daemon.doStop(true)
 	else sendServerCmd c, =>
 		if c in statusChangeCommands
 			$.delay 500, => sendServerCmd 'status', => exit_soon 0

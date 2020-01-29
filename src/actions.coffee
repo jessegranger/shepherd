@@ -1,5 +1,6 @@
 
 Object.assign module.exports, { Actions: {
+	down:    require './actions/down'
 	add:     require './actions/add'
 	remove:  require './actions/remove'
 	replace: require './actions/replace'

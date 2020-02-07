@@ -74,8 +74,7 @@ class Group extends Array
 			@[i].start => oneStep(i+1)
 		true
 	stop: (cb) ->
-		for proc in @
-			proc.stop()
+		for proc in @ then proc.stop()
 		cb?(null, true)
 	markAsInvalid: (reason) ->
 		for proc in @
@@ -265,7 +264,7 @@ class Proc
 		@expected = false
 		@statusString = "stopping"
 		if @checkResumeTimeout isnt null
-			@log "Cancelling checkResumeTimeout..."
+			verbose "cancelling checkResumeTimeout..."
 			clearTimeout @checkResumeTimeout
 			@checkResumeTimeout = null
 		if @proc?.pid > 1
@@ -293,9 +292,7 @@ class Proc
 			return true
 		@started = false
 		@proc = null
-		@statusString = switch true
-			when @enabled then "stopped"
-			else "disabled"
+		@statusString = if @enabled then "stopped" else "disabled"
 		cb? null, false
 		return false
 
@@ -353,8 +350,8 @@ actOnAll = (method, cb) ->
 	acted = false
 	progress = $.Progress(Groups.size + 1) \
 		.then => afterAction method, acted, cb
-	finishOne = (ret) =>
-		acted = ret or acted
+	finishOne = (err, act) =>
+		acted = act or acted
 		progress.finish 1
 	Groups.forEach (group) ->
 		if 'function' is typeof group[method]

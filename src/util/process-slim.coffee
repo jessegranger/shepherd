@@ -1,7 +1,6 @@
 { $, echo, warn, verbose } = require '../common'
 ChildProcess = require "child_process"
 
-
 # need to support some queries
 # Wait until a PID (or a child of PID) owns port N
 
@@ -52,7 +51,6 @@ refresh_process_table = (cb, ports=true) ->
 				cb null, process_table = new_table
 		else
 				cb null, new_table
-
 	null
 
 isChildOf = (ppid, pid, cb) ->
@@ -153,22 +151,31 @@ getProcessTree = (pid, cb) =>
 	getProcessTable (err, table) =>
 		recurse = (_pid) =>
 			ret.push _pid
-			for _,proc of table
-				if proc.ppid is _pid
-					recurse(proc.pid)
-		recurse(pid)
-		cb(ret)
+			for _,proc of table when proc.ppid is _pid
+				recurse proc.pid
+		recurse pid
+		cb ret
+	null
 
 killProcessTree = (pid, signal, cb) =>
-	getProcessTree pid, (pids) =>
-		for pid in pids
-			try
-				echo "[process-slim] process.kill(#{pid}, #{signal})"
-				process.kill pid, signal
-			catch err
-				warn "[process-slim] process.kill(#{pid}) failed: #{err}"
-		cb(null)
-
+	echo "killProcessTree(#{pid}, #{signal})"
+	# Do multiple passes over the process table, to make sure the PIDs are really gone
+	do onePass = =>
+		getProcessTree pid, (tree) =>
+			tree.pop() # always discard the first pid in the tree, which is a copy of pid
+			verbose "PIDs to kill under #{pid}:", tree.join(" ")
+			# because we dont want to kill the current pid, which would terminate the loop
+			if tree.length < 1
+				cb(null)
+				return
+			for pid in tree
+				verbose "[process-slim] process.kill(#{pid}, #{signal})"
+				try
+					process.kill pid, signal
+				catch err
+					warn "[process-slim] process.kill(#{pid}) failed: #{err}"
+			# do another pass, until the tree is only the root pid
+			setTimeout(onePass, 1000)
 
 Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf }
 

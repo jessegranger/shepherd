@@ -17,6 +17,7 @@ Output = require './output'
 	expandPath } = require '../files'
 { readConfig } = require '../util/config'
 ChildProcess = require 'child_process'
+SlimProcess = require '../util/process-slim'
 
 exit_soon = (n, ms=200) =>
 	setTimeout (=>
@@ -46,25 +47,24 @@ handleMessage = (msg, client, cb) ->
 exists = (path) -> try (stat = Fs.statSync expandPath path).isFile() or stat.isSocket() catch then false
 
 doStop = (exit) ->
-	verbose "Daemon.doStop(#{exit})"
-	if pid = readPid()
-		verbose "Sending stop message to all groups..."
-		Actions.stop.onMessage({}) # send a stop command to all running instances
-		$.delay 1000, -> # give them a little time to exit gracefully
-			verbose "Killing daemon processs..."
-			# then kill the pid from the pid file
-			result = Shell.exec "kill #{pid}", { silent: true, async: false } # use Shell.exec for easier stderr peek after
-			if result.stderr.indexOf("No such process") > -1
-				verbose "No such process: forcing unlink"
-				verbose "Unlink: ", expandPath pidFile
-				try Fs.unlinkSync(expandPath pidFile)
-				verbose "Unlink: ", expandPath socketFile
-				try Fs.unlinkSync(expandPath socketFile)
+	echo "Daemon.doStop(exit=#{exit})"
+	unless pid = readPid()
+		echo "No PID file."
+		if exit
+			return exit_soon 0
 	else
-		verbose "No PID file."
-	echo "Status: offline."
-	if exit
-		return exit_soon 0
+		echo "Sending stop message to all groups..."
+		Actions.stop.onMessage {}, null, (err) -> # send a stop command to all running instances
+			echo "Returned from stop message..."
+			# then kill the pid from the pid file
+			SlimProcess.killProcessTree pid, "SIGTERM", (err) ->
+				echo "Unlink: ", expandPath pidFile
+				try Fs.unlinkSync expandPath pidFile
+				echo "Unlink: ", expandPath socketFile
+				try Fs.unlinkSync expandPath socketFile
+				if exit
+					return exit_soon 0
+	null
 
 doStatus = ->
 	$.log "Socket:", socketFile, if exists(socketFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
@@ -90,6 +90,7 @@ runDaemon = => # in the foreground
 
 	Fs.writeFile _pidFile, process.pid, (err) =>
 		if err then return die "Failed to write pid file:", err
+		console.log "Setting output file...", outputFile
 		Output.setOutput outputFile, (err) =>
 			if err then return die "Failed to set output file:", err
 			echo "Opening master socket...", socketFile
@@ -136,15 +137,17 @@ runDaemon = => # in the foreground
 
 doStart = (exit) => # launch the daemon in the background and exit
 	echo "Starting daemon..."
-	_cmd = process.argv.slice(0,2).join(' ')
-		.replace("client/index","daemon/index") +
-		" daemon" +
-		" --base \"#{basePath.replace /\/.shep$/,''}\"" +
-		(if cmd.verbose then " --verbose" else "") +
-		(if cmd.quiet then " --quiet" else "")
+	cmd = process.argv[0]
+	args = [
+		process.argv[1].replace("client/index","daemon/index")
+		"daemon",
+		"--base \"#{basePath.replace /\/.shep$/,''}\"",
+		(if cmd.verbose then "--verbose" else ""),
+		(if cmd.quiet then "--quiet" else "")
+	]
 	devNull = Fs.openSync "/dev/null", 'a+'
 	stdio = [ devNull, devNull, process.stderr ] # only let stderr pass through
-	child = ChildProcess.spawn(_cmd, { detached: true, shell: true, stdio: stdio })
+	child = ChildProcess.spawn(cmd, args, { detached: true, shell: false, stdio: stdio })
 	child.on 'error', (err) -> console.error "Child exec error:", err
 	child.unref()
 	if exit then exit_soon 0

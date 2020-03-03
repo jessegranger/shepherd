@@ -45,7 +45,7 @@ TEST_COUNT=0
 function it() {
 	if [ -z "$1" ] || (echo "$2" | grep -q "$1"); then
 		TEST_COUNT=$(( $TEST_COUNT + 1 ))
-		TEST_NAME="$$-$TEST_COUNT"
+		TEST_NAME="test_$$_case_$TEST_COUNT"
 		echo
 		echo -n " * $2"
 		return 0
@@ -55,11 +55,17 @@ function it() {
 }
 function fail() {
 	P="$(pwd)"
-	SAVETARGET=/tmp/save-$(basename $P)
+	SAVETARGET=/tmp/shepherd-test-$(basename $P)
 	echo " $FAIL_MARK"
 	echo "Saving snapshot of the test into $SAVETARGET"
 	mkdir $SAVETARGET
 	cp -ar $P $SAVETARGET
+	echo "Config:"
+	echo "-------"
+	cat $SAVETARGET/$(basename $P)/.shep/config
+	echo "Log:"
+	echo "----"
+	cat $SAVETARGET/$(basename $P)/.shep/log
 	die $*
 }
 function check() {
@@ -71,7 +77,7 @@ function check_file_contains() {
 }
 function check_contains() {
 	# echo -n check_contains $2 $3
-	(echo "$1" | grep -q "$2") && pass || (echo $1 && fail "Expected: $2")
+	(echo "$1" | grep -q "$2") && pass || (echo "Found: $1" && fail "Expected: $2")
 }
 function check_process() {
 	# echo -n check_process $*
@@ -92,13 +98,19 @@ function check_up() {
 	# echo -n "check_up"
 	P="$(pwd)"
 	shep up --verbose | grep -q "Starting"
-	check [ "$?" -eq 0 -a -e "$P/.shep/socket" -a -e "$P/.shep/pid" -a -e "$P/.shep/log" ]
-	sleep 4
+	check [ "$?" -eq 0 ]
+	dotsleep 2
+	check [ -e "$P/.shep/socket" ]
+	check [ -e "$P/.shep/pid" ]
+	check [ -e "$P/.shep/log" ]
+	dotsleep 2
 }
 function check_down() {
 	# echo -n "check_down"
-	shep down | grep -q "Stopping"
-	check [ "$?" -eq 0 ]
+	shep down | grep -q "All stopped"
+	R=$?
+	echo -n "(shep down result: $R)"
+	check [ "$R" -eq 0 ]
 }
 function pass() {
 	echo -n " $PASS_MARK"

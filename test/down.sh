@@ -11,7 +11,9 @@ if it "$*" 'should stop a started daemon'; then
 	cd $(mkdeploy)
 	check_init
 	check_up
-	check_contains "`shep down`" "Status: offline"
+	R=`shep down`
+	echo -n "shep down: $R"
+	dotsleep 1
 	check_contains "`shep status`" "Status: offline"
 	pass
 fi

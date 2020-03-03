@@ -11,10 +11,8 @@ Object.assign module.exports, {
 		client?.write $.TNET.stringify "Shutting down..."
 		actOnAll 'stop', (err, acted) ->
 			client?.write $.TNET.stringify "All stopped (acted: #{acted})."
-			if 'doStop' of Daemon
-				Daemon.doStop(true)
-			else
-				console.error "Daemon did not export doStop: ", JSON.stringify(Object.keys(Daemon))
+			Daemon.doStop(true)
+			client?.write $.TNET.stringify "Daemon stopped."
 			cb? null, acted
 	onResponse: echoResponse
 }

@@ -268,25 +268,17 @@ class Proc
 			clearTimeout @checkResumeTimeout
 			@checkResumeTimeout = null
 		if @proc?.pid > 1
-			verbose "#{@id} attaching exit handler"
 			@proc.on 'exit', =>
-				verbose "#{@id} handling exit event"
+				verbose "#{@id} event: 'exit'"
 				@started = false
 				@statusString = if @enabled then "stopped" else "disabled"
 				if @port
-					verbose "#{@id} asking nginx to reload"
-					Nginx.sync =>
-						verbose "#{@id} nginx reload complete"
-						cb? null, true
+					Nginx.sync => cb? null, true
 				else
 					cb? null, true
-			verbose "#{@id} calling killProcessTree from root #{@proc.pid}"
 			try
-				start_kill = $.now
 				SlimProcess.killProcessTree @proc.pid, 'SIGTERM', (err) =>
-					if err
-						warn "#{@id} killProcessTree error: #{err}"
-					verbose "#{@id} killProcessTree finished after #{$.now - start_kill}ms"
+					if err then warn "#{@id} killProcessTree error: #{err}"
 			catch err
 				warn "#{@id} killProcessTree threw exception:", err
 			return true

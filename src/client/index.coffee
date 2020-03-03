@@ -34,7 +34,7 @@ sendServerCmd = (_cmd, cb) =>
 	unless exists(basePath)
 		return echo "No .shep directory found."
 	unless exists(socketFile)
-		return echo "Status: offline."
+		return echo "Status: offline (no socket file)."
 
 	cb or= nop
 
@@ -57,10 +57,10 @@ sendServerCmd = (_cmd, cb) =>
 						Daemon.doStart(false)
 						setTimeout retryConnect, readTimeout
 					else
-						echo "Status: offline."
+						echo "Status: offline (#{err.code}, #{_cmd})."
 						exit_soon 1
 				else if err.code in ['EADDRNOTAVAIL', 'ECONNREFUSED']
-					echo "Status: offline."
+					echo "Status: offline (#{err.code})."
 					exit_soon 1
 				else on_error err
 			connect: ->

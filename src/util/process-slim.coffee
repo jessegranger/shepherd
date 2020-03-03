@@ -157,18 +157,18 @@ getProcessTree = (pid, cb) =>
 		cb ret
 	null
 
-killProcessTree = (pid, signal, cb) =>
-	echo "killProcessTree(#{pid}, #{signal})"
+killAllChildren = (pid, signal, cb) =>
+	echo "killAllChildren(#{pid}, #{signal})"
 	# Do multiple passes over the process table, to make sure the PIDs are really gone
 	do onePass = =>
 		getProcessTree pid, (tree) =>
-			tree.pop() # always discard the first pid in the tree, which is a copy of pid
-			verbose "PIDs to kill under #{pid}:", tree.join(" ")
+			tree = tree.filter (x) -> x isnt process.pid
+			verbose "PIDs to kill:", tree.join(" ")
 			# because we dont want to kill the current pid, which would terminate the loop
 			if tree.length < 1
 				cb(null)
 				return
-			for pid in tree
+			for pid in tree when pid isnt process.pid # dont kill ourselves before our time
 				verbose "[process-slim] process.kill(#{pid}, #{signal})"
 				try
 					process.kill pid, signal
@@ -177,7 +177,26 @@ killProcessTree = (pid, signal, cb) =>
 			# do another pass, until the tree is only the root pid
 			setTimeout(onePass, 1000)
 
-Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf }
+killProcessTree = (pid, signal, cb) =>
+	echo "killProcessTree(#{pid}, #{signal})"
+	# Do multiple passes over the process table, to make sure the PIDs are really gone
+	do onePass = =>
+		getProcessTree pid, (tree) =>
+			verbose "PIDs to kill:", tree.join(" ")
+			# because we dont want to kill the current pid, which would terminate the loop
+			if tree.length < 1
+				cb(null)
+				return
+			for pid in tree when pid isnt process.pid # dont kill ourselves before our time
+				verbose "[process-slim] process.kill(#{pid}, #{signal})"
+				try
+					process.kill pid, signal
+				catch err
+					warn "[process-slim] process.kill(#{pid}) failed: #{err}"
+			# do another pass, until the tree is only the root pid
+			setTimeout(onePass, 1000)
+
+Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf, killAllChildren }
 
 if require.main is module
 	start = Date.now()

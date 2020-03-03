@@ -46,18 +46,19 @@ handleMessage = (msg, client, cb) ->
 
 exists = (path) -> try (stat = Fs.statSync expandPath path).isFile() or stat.isSocket() catch then false
 
-doStop = (exit) ->
+doStop = (exit, client) ->
 	echo "Daemon.doStop(exit=#{exit})"
 	unless pid = readPid()
 		echo "No PID file."
 		if exit
+			echo "Exiting soon."
 			return exit_soon 0
 	else
 		echo "Sending stop message to all groups..."
 		Actions.stop.onMessage {}, null, (err) -> # send a stop command to all running instances
 			echo "Returned from stop message..."
 			# then kill the pid from the pid file
-			SlimProcess.killProcessTree pid, "SIGTERM", (err) ->
+			SlimProcess.killAllChildren pid, "SIGTERM", (err) ->
 				echo "Unlink: ", expandPath pidFile
 				try Fs.unlinkSync expandPath pidFile
 				echo "Unlink: ", expandPath socketFile
@@ -72,7 +73,6 @@ doStatus = ->
 
 started = false
 runDaemon = => # in the foreground
-
 	unless pidFile
 		return die "Daemon has no pidFile configured."
 

@@ -88,7 +88,7 @@ runDaemon = => # in the foreground
 	if exists(_socketFile)
 		return die "Socket file still exists:" + socketFile
 
-	Fs.writeFile _pidFile, process.pid, (err) =>
+	Fs.writeFile _pidFile, String(process.pid), (err) =>
 		if err then return die "Failed to write pid file:", err
 		console.log "Setting output file...", outputFile
 		Output.setOutput outputFile, (err) =>

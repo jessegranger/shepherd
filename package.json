@@ -13,8 +13,8 @@
 	"repository": "https://github.com/jessegranger/shepherd.git",
 	"dependencies": {
 		"bling": "^0.12.0",
-		"chalk": "latest",
-		"handlebars": "^4.5.3",
-		"shelljs": "latest"
+		"chalk": "^4.1.0",
+		"handlebars": "^4.7.6",
+		"shelljs": "^0.8.4"
 	}
 }

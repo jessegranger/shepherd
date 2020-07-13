@@ -74,8 +74,13 @@ class Group extends Array
 			@[i].start => oneStep(i+1)
 		true
 	stop: (cb) ->
-		for proc in @ then proc.stop()
-		cb?(null, true)
+		acted = false
+		progress = $.Progress(@length + 1)
+			.wait (err) -> cb?(err, true)
+		for proc in @ then proc.stop (err, _acted) ->
+			acted |= _acted
+			progress.finish 1
+		progress.finish 1
 	markAsInvalid: (reason) ->
 		for proc in @
 			proc.markAsInvalid reason
@@ -268,6 +273,7 @@ class Proc
 			clearTimeout @checkResumeTimeout
 			@checkResumeTimeout = null
 		if @proc?.pid > 1
+			# if the proc is alive, set up a listener for when it exits
 			@proc.on 'exit', =>
 				verbose "#{@id} event: 'exit'"
 				@started = false
@@ -276,17 +282,19 @@ class Proc
 					Nginx.sync => cb? null, true
 				else
 					cb? null, true
+			# send it a kill signal
 			try
 				SlimProcess.killProcessTree @proc.pid, 'SIGTERM', (err) =>
 					if err then warn "#{@id} killProcessTree error: #{err}"
 			catch err
 				warn "#{@id} killProcessTree threw exception:", err
 			return true
-		@started = false
-		@proc = null
-		@statusString = if @enabled then "stopped" else "disabled"
-		cb? null, false
-		return false
+		else
+			@started = false
+			@proc = null
+			@statusString = if @enabled then "stopped" else "disabled"
+			cb? null, false
+			return false
 
 	restart: (cb) ->
 		@statusString = "restarting"
@@ -341,7 +349,9 @@ actOnGroup = (method, groupId, cb) ->
 actOnAll = (method, cb) ->
 	acted = false
 	progress = $.Progress(Groups.size + 1) \
+		.on("progress", (cur,max) -> echo "actOnAll[#{method}] progress:", progress.inspect())
 		.then => afterAction method, acted, cb
+	echo "actOnAll[#{method}] started:", progress.inspect()
 	finishOne = (err, act) =>
 		acted = act or acted
 		progress.finish 1

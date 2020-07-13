@@ -20,9 +20,8 @@ doInit = (cb) ->
 		echo "Configuration already exists (#{configFile})"
 		cb(null, false)
 	else
-		verbose "Checking for defaults file:", defaultsFile
 		if exists(defaultsFile)
-			echo "Applying default config..."
+			echo "Applying default config...", configFile
 			Fs.copyFile expandPath(defaultsFile), expandPath(configFile), (err) => cb(null, true)
 		else
 			createBasePath ".", cb
@@ -71,16 +70,20 @@ sendServerCmd = (_cmd, cb) =>
 							msg.auto = cmd._[1]
 					bytes = $.TNET.stringify msg
 				catch err then return on_error err
+				# Send the command bytes to the server
 				@write bytes, =>
+					# Notify this action of a new connection
 					action.onConnect?(@)
 					unless 'onResponse' of action
 						return @end()
+					# If there's an onResponse, read the 
 					timeout = $.delay readTimeout, =>
 						warn "Timed-out waiting for a response from the daemon."
 						@end()
-					Tnet.read_stream @, (item) =>
+					perItem = (item) => action.onResponse item, @
+					Tnet.read_stream(@, perItem).then =>
 						timeout.cancel()
-						action.onResponse item, @
+						@end()
 					null
 				null
 		null
@@ -121,13 +124,12 @@ switch c # some commands get handled without connecting to the daemon
 		exit_soon (if err then 1 else 0)
 	when 'up'
 		Daemon.doStart(false)
-		waitForSocket 3000, (err) =>
+		waitForSocket 5000, (err) =>
 			if err is 'timeout'
 				warn "Daemon did not start within timeout."
 				exit_soon 1
-			else
-				sendServerCmd 'status', =>
-					exit_soon 0
+			else sendServerCmd 'status', =>
+				exit_soon 0
 	# disabled special 'down' case, so that we create a 'down' message in the 'else' case below
 	# when 'down' then Daemon.doStop(true)
 	else sendServerCmd c, =>

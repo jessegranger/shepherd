@@ -18,4 +18,5 @@ Object.assign module.exports, { Actions: {
 	health:  require './actions/health'
 	nginx:   require './actions/nginx'
 	config:  require './actions/config'
+	verbose: require './actions/verbose'
 }}

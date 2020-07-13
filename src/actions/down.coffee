@@ -14,5 +14,5 @@ Object.assign module.exports, {
 		client_echo "Shutting down..."
 		Daemon.doStop true, client, (err) ->
 			client_echo "Daemon.doStop cb returned. (err: #{err})"
-			cb? null, acted
+			cb? null, true
 }

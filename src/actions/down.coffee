@@ -5,14 +5,14 @@ Daemon = require '../daemon'
 
 Object.assign module.exports, {
 	options: [ ]
-	toMessage: (cmd) ->
-		{ c: 'down' }
-	onMessage: (msg, client, cb) ->
-		client?.write $.TNET.stringify "Shutting down..."
-		actOnAll 'stop', (err, acted) ->
-			client?.write $.TNET.stringify "All stopped (acted: #{acted})."
-			Daemon.doStop(true)
-			client?.write $.TNET.stringify "Daemon stopped."
-			cb? null, acted
+	toMessage: (cmd) -> { c: 'down' }
 	onResponse: echoResponse
+	onMessage: (msg, client, cb) ->
+		client_echo = (msg) ->
+			echo "src/action/down", msg
+			client?.write $.TNET.stringify "src/action/down " + msg
+		client_echo "Shutting down..."
+		Daemon.doStop true, client, (err) ->
+			client_echo "Daemon.doStop cb returned. (err: #{err})"
+			cb? null, acted
 }

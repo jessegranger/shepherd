@@ -1,7 +1,6 @@
 
 describe 'enable'
 if it "$*" 'should enable - everything'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -23,7 +22,6 @@ if it "$*" 'should enable - everything'; then
 fi
 
 if it "$*" 'should enable - groups'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -44,7 +42,6 @@ if it "$*" 'should enable - groups'; then
 fi
 
 if it "$*" 'should enable - instances'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js

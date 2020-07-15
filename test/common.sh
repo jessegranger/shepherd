@@ -12,7 +12,7 @@ function mkdeploy() {
 	if [ -z "$P" ]; then
 		die "failed to mktemp -d: empty result"
 	fi
-	echo "$P" | grep "^/tmp" || die "mktemp -d is not in /tmp: $P"
+	(echo "$P" | grep "^/tmp" || die "mktemp -d is not in /tmp: $P") > /dev/null
 	rm -rf "$P/*"
 	mkdir "$P/node_modules" \
 		&& mkdir "$P/node_modules/.bin" \
@@ -53,6 +53,7 @@ function it() {
 		TEST_NAME="test_$$_case_$TEST_COUNT"
 		echo
 		echo " * $2 "
+		cd $(mkdeploy)
 		return 0
 	else
 		return 1
@@ -60,7 +61,7 @@ function it() {
 }
 function fail() {
 	P="$(pwd)"
-	echo $P | grep '^/tmp' || die "Unexpected pwd: $P"
+	echo $P | grep '^/tmp' || die "Unexpected pwd: $P, failed to fail('$*')."
 	SAVETARGET=/tmp/shepherd-test-$(basename $P)
 	echo "$FAIL_MARK"
 	echo "Saving snapshot of the test into $SAVETARGET"
@@ -162,11 +163,13 @@ function cleanup() {
 	P="$(pwd)"
 	echo
 	echo "cleanup: checking for /tmp..."
-	echo $P | grep '^/tmp' || exit 1
-	echo "cleanup: killall node..."
-	killall node &> /dev/null || true
-	echo "cleanup: rm -r $P..."
-	[ -n "$P" -a -d "$P" ] && /bin/rm -r "$P"
+	echo $P | grep '^/tmp' > /dev/null
+	if [ "$?" -eq 0 ]; then
+		echo "cleanup: killall node..."
+		killall node &> /dev/null || true
+		echo "cleanup: rm -r $P..."
+		[ -n "$P" -a -d "$P" ] && /bin/rm -r "$P"
+	fi
 }
 trap cleanup EXIT
 # trap cleanup ERR

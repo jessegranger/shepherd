@@ -1,6 +1,5 @@
 describe 'stop'
 if it "$*" 'should stop - everything'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -16,7 +15,6 @@ if it "$*" 'should stop - everything'; then
 fi
 
 if it "$*" 'should stop - groups'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -39,7 +37,6 @@ if it "$*" 'should stop - groups'; then
 fi
 
 if it "$*" 'should stop - instances'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js

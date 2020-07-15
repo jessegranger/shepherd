@@ -1,7 +1,6 @@
 
 describe 'restart'
 if it "$*" 'should restart - everything'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	L="$(pwd)/.shep/log"
 	check_init

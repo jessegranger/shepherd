@@ -1,7 +1,6 @@
 
 describe 'disable'
 if it "$*" 'should disable - everything'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -22,7 +21,6 @@ if it "$*" 'should disable - everything'; then
 fi
 
 if it "$*" 'should disable - groups'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -44,7 +42,6 @@ if it "$*" 'should disable - groups'; then
 fi
 
 if it "$*" 'should disable - instances'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -73,7 +70,6 @@ if it "$*" 'should disable - instances'; then
 fi
 
 if it "$*" 'start on a disabled instance does nothing'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js

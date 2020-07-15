@@ -1,7 +1,6 @@
 
 describe 'health'
 if it "$*" 'should check status code'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$bad_status_server" > bad_status_server.js

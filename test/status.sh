@@ -1,14 +1,12 @@
 
 describe 'status'
 if it "$*" 'should do nothing if daemon is stopped'; then
-	cd $(mkdeploy)
 	check_init
 	check_contains "`shep status`" "Status: offline"
 	pass
 fi
 
 if it "$*" 'should list - unstarted'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -25,7 +23,6 @@ if it "$*" 'should list - unstarted'; then
 fi
 
 if it "$*" 'should list - started'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -44,7 +41,6 @@ if it "$*" 'should list - started'; then
 fi
 
 if it "$*" 'can show status of a group'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -64,7 +60,6 @@ if it "$*" 'can show status of a group'; then
 fi
 
 if it "$*" 'can show status of an instance'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js

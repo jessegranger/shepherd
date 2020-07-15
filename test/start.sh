@@ -1,7 +1,6 @@
 
 describe 'start'
 if it "$*" 'should start - everything'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -17,7 +16,6 @@ if it "$*" 'should start - everything'; then
 fi
 
 if it "$*" 'should start - workers'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$simple_worker" > simple_worker.js
@@ -33,7 +31,6 @@ if it "$*" 'should start - workers'; then
 fi
 
 if it "$*" 'should start - groups'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -53,7 +50,6 @@ if it "$*" 'should start - groups'; then
 fi
 
 if it "$*" 'should start - instances'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -71,7 +67,6 @@ if it "$*" 'should start - instances'; then
 fi
 
 if it "$*" 'should keep instance up if it dies'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js

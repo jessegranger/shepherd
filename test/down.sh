@@ -1,17 +1,15 @@
 
 describe 'down'
 if it "$*" 'should do nothing if already stopped'; then
-	cd $(mkdeploy)
 	check_init
-	check_contains "`shep down`" "Status: offline"
+	check_contains "`shep down 2>&1`" "Status: offline"
 	pass
 fi
 
 if it "$*" 'should stop a started daemon'; then
-	cd $(mkdeploy)
 	check_init
 	check_up
-	R=`shep down`
+	R="`shep down 2>&1`"
 	echo -n "shep down: $R"
 	dotsleep 1
 	check_contains "`shep status`" "Status: offline"
@@ -19,7 +17,6 @@ if it "$*" 'should stop a started daemon'; then
 fi
 
 if it "$*" 'should stop all started children'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js

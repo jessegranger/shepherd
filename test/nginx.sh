@@ -1,7 +1,6 @@
 
 describe 'nginx'
 if it "$*" 'should be able to --disable'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -14,7 +13,6 @@ if it "$*" 'should be able to --disable'; then
 fi
 
 if it "$*" 'should be able to --enable'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "add --group test --exec 'node echo_server.js A $TEST_NAME' --count 1 --port $(next_port)" > $C
@@ -27,7 +25,6 @@ if it "$*" 'should be able to --enable'; then
 fi
 
 if it "$*" 'should use nginx.template to write nginx'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -49,7 +46,6 @@ if it "$*" 'should use nginx.template to write nginx'; then
 fi
 
 if it "$*" 'should write nginx on status change'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js
@@ -79,7 +75,6 @@ if it "$*" 'should write nginx on status change'; then
 fi
 
 if it "$*" 'should handle multiple groups'; then
-	cd $(mkdeploy)
 	C="$(pwd)/.shep/config"
 	check_init
 	echo "$echo_server" > echo_server.js

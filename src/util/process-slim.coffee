@@ -163,8 +163,8 @@ killAllChildren = (pid, signal, cb) =>
 	do onePass = =>
 		getProcessTree pid, (tree, table) =>
 			# filter because we dont want to kill the current pid, which would terminate the loop
-			tree = tree.filter (x) -> (x isnt process.pid) # and (table[id]?.command?)
-			verbose tree.map((id)-> "\nWill Kill: #{id} #{table[id]?.command}").join("")
+			tree = tree.filter (x) -> (x isnt process.pid) and (table[id]?.command?)
+			verbose "killAllChildren(#{pid}, #{signal}):", tree.map((id)-> "\nWill Kill: #{id} #{table[id]?.command}").join("")
 			if tree.length < 1
 				cb(null)
 				return
@@ -183,7 +183,7 @@ killProcessTree = (pid, signal, cb) =>
 	do onePass = =>
 		getProcessTree pid, (tree) =>
 			# filter because we dont want to kill the current pid, which would terminate the loop
-			tree = tree.filter (x) -> (x isnt process.pid) # and (table[id]?.command?)
+			tree = tree.filter (x) -> (x isnt process.pid) and (table[id]?.command?)
 			verbose "killProcessTree(#{pid}, #{signal}):", tree.map((id)-> "\nWill Kill: #{id} #{table[id]?.command}").join("")
 			if tree.length < 1
 				cb(null)

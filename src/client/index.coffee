@@ -20,6 +20,7 @@ doInit = (cb) ->
 		echo "Configuration already exists (#{configFile})"
 		cb(null, false)
 	else
+		echo "Initializing .shep/config..."
 		if exists(defaultsFile)
 			echo "Applying default config...", configFile
 			Fs.copyFile expandPath(defaultsFile), expandPath(configFile), (err) => cb(null, true)

@@ -32,10 +32,7 @@ exists(basePath) and verbose "Using", basePath
 
 createBasePath = (prefix, cb) =>
 	ChildProcess.spawn("mkdir -p \"#{prefix}/.shep\"", { shell: true }).on 'exit', (code, signal) =>
-		if code is 0
-			echo "Created .shep folder..."
-			cb()
-		else cb(new Error("mkdir failed: code #{code}"))
+		cb if code is 0 then null else new Error "mkdir failed: code #{code}"
 
 makePath = (parts...) =>
 	unless basePath? then undefined

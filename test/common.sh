@@ -119,9 +119,11 @@ function pass() {
 
 function cleanup() {
 	P="$(pwd)"
+	echo "cleanup: checking for /tmp..."
+	echo $P | grep '^/tmp' || exit 1
+	echo "cleanup: killall node..."
 	killall node &> /dev/null || true
-	echo
-	echo "Cleaning up $P"
+	echo "cleanup: rm -r $P..."
 	[ -n "$P" -a -d "$P" ] && /bin/rm -r "$P"
 }
 trap cleanup EXIT

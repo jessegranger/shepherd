@@ -2,18 +2,15 @@
 describe "init"
 if it "$*" "should create a .shep folder"; then
 	cd $(mkdeploy)
-	check [ "$?" -eq 0 ]
-	shep init > /dev/null
-	check [ -d "$(pwd)/.shep" ]
-	pass
+	check_init
+	check_dir "$(pwd)/.shep"
 fi
 
 if it "$*" "should copy a .shep/defaults file"; then
 	cd $(mkdeploy)
-	C="$(pwd)/.shep/config"
-	mkdir -p "$(pwd)/.shep/"
-	echo "xyzzy" > "$(pwd)/.shep/defaults"
-	shep init > /dev/null
-	check [ `cat $C` = "xyzzy" ]
-	pass
+	P="$(pwd)"
+	mkdir -p "$P/.shep/"
+	echo "xyzzy" > "$P/.shep/defaults"
+	check_init
+	check_file_contains "$P/.shep/config" "xyzzy"
 fi

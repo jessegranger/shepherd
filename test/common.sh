@@ -9,13 +9,16 @@ TEST_COUNT=0
 
 function mkdeploy() {
 	P=$(mktemp -d)
+	if [ -z "$P" ]; then
+		die "failed to mktemp -d: empty result"
+	fi
+	echo "$P" | grep "^/tmp" || die "mktemp -d is not in /tmp: $P"
 	rm -rf "$P/*"
 	mkdir "$P/node_modules" \
 		&& mkdir "$P/node_modules/.bin" \
 		&& ln -sf "$START_PATH" "$P/node_modules/the-shepherd" \
 		&& ln -sf ../the-shepherd/bin/shep "$P/node_modules/.bin/shep" \
-		&& echo "$P" \
-		|| (echo "failed to mkdeploy"; exit 1)
+		&& echo "$P" || die "failed to mkdeploy"
 	return 0
 }
 
@@ -25,7 +28,7 @@ function dotsleep() {
 	while [ "$secs" -gt 0 ]; do
 		sleep 1
 		echo -n .
-		secs=`expr $secs - 1`
+		secs=$(( $secs - 1 ))
 	done
 	echo -n " "
 	return 0
@@ -49,7 +52,7 @@ function it() {
 		TEST_COUNT=$(( $TEST_COUNT + 1 ))
 		TEST_NAME="test_$$_case_$TEST_COUNT"
 		echo
-		echo -n " * $2"
+		echo " * $2 "
 		return 0
 	else
 		return 1
@@ -57,8 +60,9 @@ function it() {
 }
 function fail() {
 	P="$(pwd)"
+	echo $P | grep '^/tmp' || die "Unexpected pwd: $P"
 	SAVETARGET=/tmp/shepherd-test-$(basename $P)
-	echo " $FAIL_MARK"
+	echo "$FAIL_MARK"
 	echo "Saving snapshot of the test into $SAVETARGET"
 	mkdir $SAVETARGET
 	cp -ar $P $SAVETARGET
@@ -71,42 +75,57 @@ function fail() {
 	die $*
 }
 function check() {
-	$* && pass || fail " $FAIL_MARK"
+	$* && pass || fail "$FAIL_MARK"
 }
 function check_result() {
-	echo "check_result $1 "
+	echo -n "check_result $1 "
 	[ "$1" -eq 0 ] && pass || fail "Non-zero exit code: $1"
 }
 function check_exists() {
-	echo "check_exists $1 "
+	echo -n "check_exists $1 "
 	[ -e "$1" ] && pass || fail "Expected file to exist: $1"
 }
 function check_not_exist() {
-	echo "check_not_exist $1 "
+	echo -n "check_not_exist $1 "
 	[ ! -e "$1" ] && pass || fail "Unexpected file: $1"
 }
 function check_file_contains() {
-	echo "check_file_contains $1 $2 "
+	echo -n "check_file_contains $1 $2 "
 	(cat "$1" | grep -q "$2") && pass || (cat $1 && fail "Expected: $2")
 }
+function check_dir() {
+	echo -n "check_dir $1 "
+	[ -d "$1" ] && pass || fail "Expected directory: $1"
+}
 function check_contains() {
-	echo "check_contains $2 "
+	echo -n "check_contains $2 "
 	(echo "$1" | grep -q "$2") && pass || (echo "Found: $1" && fail "Expected: $2")
 }
+function check_pid() {
+	echo -n "check_pid $1 "
+	ps "$1" && pass || fail "Expected PID: $1, not found."
+}
+function check_no_pid() {
+	echo -n "check_no_pid $1 "
+	ps "$1" && (fail "Unexpected PID: $1, should not be found.") || pass
+}
 function check_process() {
-	echo "check_process $* "
+	echo -n "check_process $* "
 	ps -eo pid,ppid,command | grep -v grep | grep -q "$*"
-	check [ "$?" -eq 0 ]
+	[ "$?" -eq 0 ] && pass || fail "Expected process: $*, not found."
 }
 function check_no_process() {
-	echo "check_no_process $* "
-	PS=`ps -eo pid,ppid,command | grep -v grep | grep "$*"`
-	[ "$?" -eq 1 ] && pass || fail "Unexpected process: $* in: $PS"
+	echo -n "check_no_process $* "
+	ps -eo pid,ppid,command | grep -v grep | grep "$*"
+	[ "$?" -eq 1 ] && pass || fail "Unexpected process: $*, should not be found."
 }
 function check_init() {
-	echo "check_init "
-	shep init -q
-	check_result "$?"
+	echo -n "check_init "
+	P="$(pwd)"
+	O="`shep init 2>&1`"
+	R="$?"
+	check_result "$R"
+	check_contains "$O", "Initializing .shep/config..."
 }
 function check_up() {
 	echo -n "check_up "
@@ -118,6 +137,7 @@ function check_up() {
 	check_contains "$O", "Starting"
 	check_exists "$P/.shep/socket"
 	check_exists "$P/.shep/pid"
+	check_pid `cat $P/.shep/pid`
 	check_exists "$P/.shep/log"
 	dotsleep 2
 }
@@ -134,12 +154,13 @@ function check_down() {
 	check_exists "$P/.shep/log"
 }
 function pass() {
-	echo -n " $PASS_MARK"
+	echo "$PASS_MARK"
 	return 0
 }
 
 function cleanup() {
 	P="$(pwd)"
+	echo
 	echo "cleanup: checking for /tmp..."
 	echo $P | grep '^/tmp' || exit 1
 	echo "cleanup: killall node..."
@@ -151,7 +172,7 @@ trap cleanup EXIT
 # trap cleanup ERR
 
 function die() {
-	echo "die: $*"
+	echo "[$$] die: $*"
 	exit 1
 }
 

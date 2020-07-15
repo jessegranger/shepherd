@@ -81,6 +81,10 @@ function check_exists() {
 	echo "check_exists $1 "
 	[ -e "$1" ] && pass || fail "Expected file to exist: $1"
 }
+function check_not_exist() {
+	echo "check_not_exist $1 "
+	[ ! -e "$1" ] && pass || fail "Unexpected file: $1"
+}
 function check_file_contains() {
 	echo "check_file_contains $1 $2 "
 	(cat "$1" | grep -q "$2") && pass || (cat $1 && fail "Expected: $2")

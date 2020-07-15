@@ -154,17 +154,17 @@ getProcessTree = (pid, cb) =>
 			for _,proc of table when proc.ppid is _pid
 				recurse proc.pid
 		recurse pid
-		cb ret
+		cb ret, table
 	null
 
 killAllChildren = (pid, signal, cb) =>
 	echo "killAllChildren(#{pid}, #{signal})"
 	# Do multiple passes over the process table, to make sure the PIDs are really gone
 	do onePass = =>
-		getProcessTree pid, (tree) =>
-			tree = tree.filter (x) -> x isnt process.pid
-			verbose "PIDs to kill:", tree.join(" ")
-			# because we dont want to kill the current pid, which would terminate the loop
+		getProcessTree pid, (tree, table) =>
+			# filter because we dont want to kill the current pid, which would terminate the loop
+			tree = tree.filter (x) -> (x isnt process.pid) # and (table[id]?.command?)
+			verbose tree.map((id)-> "\nWill Kill: #{id} #{table[id]?.command}").join("")
 			if tree.length < 1
 				cb(null)
 				return
@@ -178,12 +178,13 @@ killAllChildren = (pid, signal, cb) =>
 			setTimeout(onePass, 1000)
 
 killProcessTree = (pid, signal, cb) =>
-	echo "killProcessTree(#{pid}, #{signal})"
+	echo "killProcessTree(#{pid}, #{signal}) Starting"
 	# Do multiple passes over the process table, to make sure the PIDs are really gone
 	do onePass = =>
 		getProcessTree pid, (tree) =>
-			verbose "PIDs to kill:", tree.join(" ")
-			# because we dont want to kill the current pid, which would terminate the loop
+			# filter because we dont want to kill the current pid, which would terminate the loop
+			tree = tree.filter (x) -> (x isnt process.pid) # and (table[id]?.command?)
+			verbose "killProcessTree(#{pid}, #{signal}):", tree.map((id)-> "\nWill Kill: #{id} #{table[id]?.command}").join("")
 			if tree.length < 1
 				cb(null)
 				return

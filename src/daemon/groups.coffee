@@ -76,7 +76,7 @@ class Group extends Array
 	stop: (cb) ->
 		acted = false
 		progress = $.Progress(@length + 1)
-			.wait (err) -> cb?(err, true)
+			.wait (err) -> cb?(err, acted)
 		for proc in @ then proc.stop (err, _acted) ->
 			acted |= _acted
 			progress.finish 1

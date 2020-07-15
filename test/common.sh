@@ -20,12 +20,14 @@ function mkdeploy() {
 }
 
 function dotsleep() {
-	ms=$1
-	if [ "$ms" -gt 0 ]; then
+	echo -n "sleep "
+	secs=$1
+	while [ "$secs" -gt 0 ]; do
 		sleep 1
 		echo -n .
-		dotsleep `expr $ms - 1`
-	fi
+		secs=`expr $secs - 1`
+	done
+	echo -n " "
 	return 0
 }
 
@@ -71,46 +73,61 @@ function fail() {
 function check() {
 	$* && pass || fail " $FAIL_MARK"
 }
+function check_result() {
+	echo "check_result $1 "
+	[ "$1" -eq 0 ] && pass || fail "Non-zero exit code: $1"
+}
+function check_exists() {
+	echo "check_exists $1 "
+	[ -e "$1" ] && pass || fail "Expected file to exist: $1"
+}
 function check_file_contains() {
-	# echo -n check_file_contains $1 $2
+	echo "check_file_contains $1 $2 "
 	(cat "$1" | grep -q "$2") && pass || (cat $1 && fail "Expected: $2")
 }
 function check_contains() {
-	# echo -n check_contains $2 $3
+	echo "check_contains $2 "
 	(echo "$1" | grep -q "$2") && pass || (echo "Found: $1" && fail "Expected: $2")
 }
 function check_process() {
-	# echo -n check_process $*
+	echo "check_process $* "
 	ps -eo pid,ppid,command | grep -v grep | grep -q "$*"
 	check [ "$?" -eq 0 ]
 }
 function check_no_process() {
-	# echo -n "check_no_process: $* "
+	echo "check_no_process $* "
 	PS=`ps -eo pid,ppid,command | grep -v grep | grep "$*"`
 	[ "$?" -eq 1 ] && pass || fail "Unexpected process: $* in: $PS"
 }
 function check_init() {
-	# echo -n "check_init"
+	echo "check_init "
 	shep init -q
-	check [ "$?" -eq 0 ]
+	check_result "$?"
 }
 function check_up() {
-	# echo -n "check_up"
+	echo -n "check_up "
 	P="$(pwd)"
-	shep up --verbose | grep -q "Starting"
-	check [ "$?" -eq 0 ]
+	O=`shep up 2>&1`
+	R=$?
 	dotsleep 2
-	check [ -e "$P/.shep/socket" ]
-	check [ -e "$P/.shep/pid" ]
-	check [ -e "$P/.shep/log" ]
+	check_result "$R"
+	check_contains "$O", "Starting"
+	check_exists "$P/.shep/socket"
+	check_exists "$P/.shep/pid"
+	check_exists "$P/.shep/log"
 	dotsleep 2
 }
 function check_down() {
-	# echo -n "check_down"
-	shep down | grep -q "All stopped"
-	R=$?
-	echo -n "(shep down result: $R)"
-	check [ "$R" -eq 0 ]
+	echo -n "check_down "
+	P="$(pwd)"
+	O="`shep down 2>&1`"
+	R="$?"
+	check_result "$R"
+	check_contains "$O", "Stopped"
+	dotsleep 1
+	check_not_exist "$P/.shep/socket"
+	check_not_exist "$P/.shep/pid"
+	check_exists "$P/.shep/log"
 }
 function pass() {
 	echo -n " $PASS_MARK"

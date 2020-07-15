@@ -90,7 +90,6 @@ runDaemon = => # in the foreground
 
 	Fs.writeFile _pidFile, String(process.pid), (err) =>
 		if err then return die "Failed to write pid file:", err
-		console.log "Setting output file...", outputFile
 		Output.setOutput outputFile, (err) =>
 			if err then return die "Failed to set output file:", err
 			echo "Opening master socket...", socketFile
@@ -112,22 +111,24 @@ runDaemon = => # in the foreground
 						for k,v of msg when v? then _msg[k] = v
 						echo "Command handled:", _msg, "in", (Date.now() - start), "ms"
 			shutdown = (signal) -> ->
-				echo "#{signal}: Shutting down..."
+				echo "#{signal}: Shutting down from signal..."
 				verbose "#{signal}: Closing master socket..."
-				try
-					socket.close()
+				try socket.close()
 				catch err
 					warn "Failed to close socket: ", err
 				verbose "#{signal}: Stopping all groups..."
-				Groups.forEach (group) -> group.stop()
-				verbose "#{signal}: Unlinking PID file..."
-				try
-					Fs.unlinkSync(_pidFile)
-				catch err
-					warn "Failed to unlink pid file (#{_pidFile}):", err
-				if signal isnt 'exit'
-					verbose "#{signal}: Scheduling delayed exit..."
-					return exit_soon 0, 2000
+				progress = $.Progress(Groups.size() + 1)
+				Groups.forEach (group) -> group.stop (err) ->
+					if err then progress.reject(err)
+					else progress.finish 1
+				progress.finish(1).wait ->
+					verbose "#{signal}: Unlinking PID file..."
+					try Fs.unlinkSync(_pidFile)
+					catch err
+						warn "Failed to unlink pid file (#{_pidFile}):", err
+					if signal isnt 'exit'
+						verbose "#{signal}: Scheduling delayed exit..."
+						return exit_soon 0, 2000
 				null
 			for sig in ['SIGINT','SIGTERM','exit']
 				verbose "Signal #{sig}: attaching handler..."

@@ -12,12 +12,10 @@ warn = (msg...) -> $.log "shep-#{process.pid} [warn]", msg...; return false
 verbose = (msg...) -> verboseMode and $.log "shep-#{process.pid} [verbose]", msg...
 quoted = (s) -> '"' + s.replace(/"/g,'\\"') + '"'
 exit_soon = (code=0, ms=100) => setTimeout (=> process.exit code), ms
-required = (msg, key, label) ->
-	unless msg
-		return warn "msg is required."
-	unless msg[key] and msg[key].length
-		return warn "#{label} is required."
-	true
+required = (msg, key, label) -> switch true
+	when (not msg?) then warn "msg is required."
+	when not msg[key] and msg[key].length then warn "#{label} is required."
+	else true
 
 echoResponse = (resp, socket) -> echo resp
 

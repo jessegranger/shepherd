@@ -10,9 +10,9 @@ Object.assign module.exports, {
 	onMessage: (msg, client, cb) ->
 		client_echo = (msg) ->
 			echo "src/action/down", msg
-			client?.write $.TNET.stringify "src/action/down " + msg
+			client?.write $.TNET.stringify msg
 		client_echo "Shutting down..."
-		Daemon.doStop true, client, (err) ->
-			client_echo "Daemon.doStop cb returned. (err: #{err})"
-			cb? null, true
+		Daemon.doStop true, client, (err, acted) ->
+			verbose "Daemon.doStop cb returned. (err: #{err})"
+			cb? null, acted
 }

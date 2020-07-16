@@ -44,6 +44,15 @@ makePath = (parts...) =>
 			ret = ret.replace(basePath, '%')
 		ret
 
+readPid = ->
+	try parseInt Fs.readFileSync(expandPath module.exports.pidFile).toString(), 10
+	catch then undefined
+
+carefulUnlink = (path, cb) ->
+	path = expandPath path
+	echo "Unlinking file:", path
+	try Fs.unlink path, cb
+	catch err then cb(err)
 
 Object.assign module.exports, {
 	createBasePath,
@@ -51,6 +60,8 @@ Object.assign module.exports, {
 	makePath,
 	basePath,
 	expandPath,
+	readPid,
+	carefulUnlink,
 	exists: exists
 	pidFile: makePath "pid"
 	socketFile: makePath "socket"

@@ -60,19 +60,9 @@ function it() {
 	fi
 }
 function fail() {
-	P="$(pwd)"
-	echo $P | grep '^/tmp' || die "Unexpected pwd: $P, failed to fail('$*')."
-	SAVETARGET=/tmp/shepherd-test-$(basename $P)
 	echo "$FAIL_MARK"
-	echo "Saving snapshot of the test into $SAVETARGET"
-	mkdir $SAVETARGET
-	cp -ar $P $SAVETARGET
-	echo "Config:"
-	echo "-------"
-	cat $SAVETARGET/$(basename $P)/.shep/config
-	echo "Log:"
-	echo "----"
-	cat $SAVETARGET/$(basename $P)/.shep/log
+	P="$(pwd)"
+	snapshot
 	die $*
 }
 function check() {
@@ -104,7 +94,7 @@ function check_contains() {
 }
 function check_pid() {
 	echo -n "check_pid $1 "
-	ps "$1" && pass || fail "Expected PID: $1, not found."
+	ps "$1" > /dev/null && pass || fail "Expected PID: $1, not found."
 }
 function check_no_pid() {
 	echo -n "check_no_pid $1 "
@@ -129,13 +119,14 @@ function check_init() {
 	check_contains "$O", "Initializing .shep/config..."
 }
 function check_up() {
+	check_not_exist "$P/.shep/socket"
+	check_not_exist "$P/.shep/pid"
 	echo -n "check_up "
 	P="$(pwd)"
-	O=`shep up 2>&1`
+	shep up
 	R=$?
 	dotsleep 2
 	check_result "$R"
-	check_contains "$O", "Starting"
 	check_exists "$P/.shep/socket"
 	check_exists "$P/.shep/pid"
 	check_pid `cat $P/.shep/pid`
@@ -159,6 +150,26 @@ function pass() {
 	return 0
 }
 
+function sigint() {
+	snapshot
+	die
+}
+function snapshot() {
+	P="$(pwd)"
+	echo $P | grep '^/tmp' || die "Unexpected pwd: $P, failed to snapshot."
+	SAVETARGET=/tmp/shepherd-test-$(basename $P)
+	echo "Saving snapshot of the test into $SAVETARGET"
+	mkdir $SAVETARGET
+	cp -arv $P/* $SAVETARGET
+	cp -arv $P/.shep $SAVETARGET
+	echo "Config:"
+	echo "-------"
+	cat $P/.shep/config
+	echo
+	echo "Log:"
+	echo "----"
+	cat $P/.shep/log
+}
 function cleanup() {
 	P="$(pwd)"
 	echo
@@ -172,7 +183,7 @@ function cleanup() {
 	fi
 }
 trap cleanup EXIT
-# trap cleanup ERR
+trap sigint SIGINT
 
 function die() {
 	echo "[$$] die: $*"

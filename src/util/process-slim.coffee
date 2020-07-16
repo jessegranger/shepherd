@@ -14,7 +14,7 @@ process_table_ts = 0
 process_table = {}
 
 refresh_process_table_if_needed = (cb) ->
-	if Date.now() - process_table_ts > 3000
+	if Date.now() - process_table_ts > 1000
 		refresh_process_table(cb)
 	else cb(null, process_table)
 
@@ -97,6 +97,14 @@ getChildrenOf = (pid, cb) =>
 
 isValidPid = (pid) -> pid? and isFinite(pid) and (not isNaN pid) and pid > 0
 
+isPidAlive = (pid, cb) ->
+	getProcessTable (err, table) ->
+		if err then return cb(err, false)
+		for _,proc of table when proc.pid is pid
+			cb(null, true)
+		cb(null, false)
+	null
+
 getParentsOf = (pid, cb) =>
 	refresh_process_table_if_needed (err, procs) ->
 		parents = []
@@ -163,7 +171,7 @@ killAllChildren = (pid, signal, cb) =>
 	do onePass = =>
 		getProcessTree pid, (tree, table) =>
 			# filter because we dont want to kill the current pid, which would terminate the loop
-			tree = tree.filter (x) -> (x isnt process.pid) and (table[id]?.command?)
+			tree = tree.filter (id) -> (id isnt process.pid) and (table[id]?.command?)
 			verbose "killAllChildren(#{pid}, #{signal}):", tree.map((id)-> "\nWill Kill: #{id} #{table[id]?.command}").join("")
 			if tree.length < 1
 				cb(null)
@@ -181,9 +189,9 @@ killProcessTree = (pid, signal, cb) =>
 	echo "killProcessTree(#{pid}, #{signal}) Starting"
 	# Do multiple passes over the process table, to make sure the PIDs are really gone
 	do onePass = =>
-		getProcessTree pid, (tree) =>
+		getProcessTree pid, (tree, table) =>
 			# filter because we dont want to kill the current pid, which would terminate the loop
-			tree = tree.filter (x) -> (x isnt process.pid) and (table[id]?.command?)
+			tree = tree.filter (id) -> (id isnt process.pid) and (table[id]?.command?)
 			verbose "killProcessTree(#{pid}, #{signal}):", tree.map((id)-> "\nWill Kill: #{id} #{table[id]?.command}").join("")
 			if tree.length < 1
 				cb(null)
@@ -197,7 +205,7 @@ killProcessTree = (pid, signal, cb) =>
 			# do another pass, until the tree is only the root pid
 			setTimeout(onePass, 1000)
 
-Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf, killAllChildren }
+Object.assign module.exports, { formatProcess, waitForPortOwner, visitProcessTree, getPortOwner, isChildOf, getProcessTable, killProcessTree, getParentsOf, getChildrenOf, killAllChildren, isPidAlive }
 
 if require.main is module
 	start = Date.now()

@@ -1,8 +1,4 @@
 
-if it "$*" "should fail"; then
-	fail "Should fail here"
-fi
-
 describe "init"
 if it "$*" "should create a .shep folder"; then
 	check_init

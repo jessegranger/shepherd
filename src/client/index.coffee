@@ -7,15 +7,21 @@ Net = require 'net'
 Daemon = require '../daemon'
 { Actions } = require '../actions'
 { $, cmd, echo, warn, verbose, exit_soon } = require '../common'
-{ exists, socketFile, configFile, basePath, createBasePath, expandPath } = require '../files'
+{ exists,
+	pidFile, socketFile, configFile,
+	basePath, createBasePath, expandPath,
+	readPid, carefulUnlink } = require '../files'
+
+{ isPidAlive } = require '../util/process-slim'
 
 readTimeout = 3000 # how long to wait for a response, to any command
 startupTimeout = 1000 # how long to wait after issuing an 'up' before inquiring with 'status'
 
-nop = ->
+ignore = ->
+
 doInit = (cb) ->
 	defaultsFile = process.cwd() + "/.shep/defaults"
-	cb or= nop
+	cb or= ignore
 	if exists(configFile) and not (cmd.f or cmd.force)
 		echo "Configuration already exists (#{configFile})"
 		cb(null, false)
@@ -34,9 +40,18 @@ sendServerCmd = (_cmd, cb) =>
 	unless exists(basePath)
 		return echo "No .shep directory found."
 	unless exists(socketFile)
+		# If there's no socket to connect to, but a PID is still alive, try to kill it via signal
+		if exists(expandPath pidFile)
+			warn "Stale PID file detected:", pidFile
+			isPidAlive savedPid = readPid(), (err, alive) ->
+				if alive
+					warn "PID (#{savedPid}) still running, but not listening on a socket, attempt to kill it."
+					process.kill(savedPid, "SIGTERM")
+				else carefulUnlink pidFile, (err) ->
+					if err then warn "client/index Error when unlinking PID file (#{pidFile}):", err
 		return echo "Status: offline (no socket file)."
 
-	cb or= nop
+	cb or= ignore
 
 	unless action = Actions[_cmd]
 		return warn "No such action:", _cmd
@@ -132,7 +147,7 @@ switch c # some commands get handled without connecting to the daemon
 			else sendServerCmd 'status', =>
 				exit_soon 0
 	# disabled special 'down' case, so that we create a 'down' message in the 'else' case below
-	# when 'down' then Daemon.doStop(true)
+	# when 'down' then Daemon.doStop(true) # this is now called from actions/down
 	else sendServerCmd c, =>
 		if c in statusChangeCommands
 			$.delay 500, => sendServerCmd 'status', => exit_soon 0

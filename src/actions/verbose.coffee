@@ -7,6 +7,8 @@ Object.assign module.exports, {
 		{ c: 'verbose', v: switch cmd._[1]
 			when "true","yes","on" then true
 			else false }
-	onMessage: (msg, client, cb) -> setVerbose(msg.v)
+	onMessage: (msg, client, next) ->
+		setVerbose(msg.v)
+		next()
 	onResponse: echoResponse
 }

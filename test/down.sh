@@ -24,7 +24,7 @@ if it "$*" 'should stop all started children'; then
 	echo "add --group testB --exec 'node echo_server.js B $TEST_NAME' --count 1 --port $(next_port)" >> $C
 	echo "start" >> $C
 	check_up
-	check_contains "`shep down`" "Status: offline"
+	check_contains "`shep down`" "Stopped"
 	sleep 2
 	check_no_process "node echo_server.js A $TEST_NAME"
 	check_no_process "node echo_server.js B $TEST_NAME"

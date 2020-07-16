@@ -13,6 +13,6 @@ Object.assign module.exports, {
 			client?.write $.TNET.stringify msg
 		client_echo "Shutting down..."
 		Daemon.doStop true, client, (err, acted) ->
-			verbose "Daemon.doStop cb returned. (err: #{err})"
+			client_echo "Stopped."
 			cb? null, acted
 }

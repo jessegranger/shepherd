@@ -349,9 +349,9 @@ actOnGroup = (method, groupId, cb) ->
 actOnAll = (method, cb) ->
 	acted = false
 	progress = $.Progress(Groups.size + 1) \
-		.on("progress", (cur,max) -> echo "actOnAll[#{method}] progress:", progress.inspect())
-		.then => afterAction method, acted, cb
-	echo "actOnAll[#{method}] started:", progress.inspect()
+		.on("progress", (cur,max) -> echo "actOnAll[#{method}] progress:", progress.inspect()) \
+		.wait => afterAction method, acted, cb
+	verbose "actOnAll[#{method}] started:", progress.inspect()
 	finishOne = (err, act) =>
 		acted = act or acted
 		progress.finish 1

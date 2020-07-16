@@ -4,17 +4,13 @@
 { $, cmd, echo, warn, verbose } = require '../common'
 Fs = require 'fs'
 Net = require 'net'
-Shell = require 'shelljs'
 Chalk = require 'chalk'
 Output = require './output'
 { Groups } = require('./groups')
 { Actions } = require('../actions')
-{ pidFile,
-	socketFile,
-	outputFile,
-	configFile,
-	basePath,
-	expandPath } = require '../files'
+{ pidFile, socketFile, outputFile, configFile,
+	basePath, expandPath,
+	readPid, carefulUnlink } = require '../files'
 { readConfig } = require '../util/config'
 ChildProcess = require 'child_process'
 SlimProcess = require '../util/process-slim'
@@ -27,10 +23,6 @@ exit_soon = (n, ms=200) =>
 die = (msg...) ->
 	console.error msg...
 	exit_soon 1
-
-readPid = ->
-	try parseInt Fs.readFileSync(expandPath pidFile).toString(), 10
-	catch then undefined
 
 handleMessage = (msg, client, cb) ->
 	if 'auto' of msg
@@ -46,25 +38,28 @@ handleMessage = (msg, client, cb) ->
 
 exists = (path) -> try (stat = Fs.statSync expandPath path).isFile() or stat.isSocket() catch then false
 
-doStop = (exit, client) ->
-	echo "Daemon.doStop(exit=#{exit})"
+doStop = (exit, client, cb) ->
+	cb or= ->
+	verbose "Daemon.doStop(exit=#{exit})"
 	unless pid = readPid()
-		echo "No PID file."
+		cb("Expected PID file: #{pidFile}", false)
 		if exit
-			echo "Exiting soon."
 			return exit_soon 0
 	else
-		echo "Sending stop message to all groups..."
-		Actions.stop.onMessage {}, null, (err) -> # send a stop command to all running instances
-			echo "Returned from stop message..."
+		verbose "daemon/index Sending stop message to all groups..."
+		try Actions.stop.onMessage {}, null, (err) -> # send a stop command to all running instances
+			verbose "daemon/index All stop messages returned..."
 			# then kill the pid from the pid file
 			SlimProcess.killAllChildren pid, "SIGTERM", (err) ->
-				echo "Unlink: ", expandPath pidFile
-				try Fs.unlinkSync expandPath pidFile
-				echo "Unlink: ", expandPath socketFile
-				try Fs.unlinkSync expandPath socketFile
-				if exit
-					return exit_soon 0
+				if err then warn "daemon/index Error from killAllChildren", err
+				carefulUnlink pidFile, (err) ->
+					if err then warn "daemon/index Error while unlinking PID file (#{pidFile}):", err
+					carefulUnlink socketFile, (err) ->
+						if err then warn "daemon/index Error while unlinking unix socket (#{socketFile}):", err
+						cb(null, true)
+						if exit
+							return exit_soon 0
+		catch err then cb(err)
 	null
 
 doStatus = ->
@@ -117,7 +112,7 @@ runDaemon = => # in the foreground
 				catch err
 					warn "Failed to close socket: ", err
 				verbose "#{signal}: Stopping all groups..."
-				progress = $.Progress(Groups.size() + 1)
+				progress = $.Progress(Groups.size + 1)
 				Groups.forEach (group) -> group.stop (err) ->
 					if err then progress.reject(err)
 					else progress.finish 1
@@ -156,10 +151,10 @@ doStart = (exit) => # launch the daemon in the background and exit
 
 if require.main is module
 	switch _c = cmd._[0]
-		when "stop" then doStop(true); console.log("Stopped.")
+		when "stop" then doStop true, null, (err, acted) -> echo "Stopped"
 		when "start" then doStart(true)
 		when "daemon" then runDaemon()
-		when "restart" then doStop(false); doStart(true)
+		when "restart" then doStop false, null, (err, acted) -> doStart true
 		when "status" then doStatus()
 		else
 			console.log "Unknown usage:", cmd

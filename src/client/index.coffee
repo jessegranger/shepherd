@@ -6,7 +6,7 @@ Fs = require 'fs'
 Net = require 'net'
 Daemon = require '../daemon'
 { Actions } = require '../actions'
-{ $, cmd, echo, warn, verbose, exit_soon } = require '../common'
+{ $, cmd, echo, warn, verbose, exit_soon, die_soon } = require '../common'
 { exists,
 	pidFile, socketFile, configFile,
 	basePath, createBasePath, expandPath,
@@ -49,7 +49,7 @@ sendServerCmd = (_cmd, cb) =>
 					process.kill(savedPid, "SIGTERM")
 				else carefulUnlink pidFile, (err) ->
 					if err then warn "client/index Error when unlinking PID file (#{pidFile}):", err
-		return echo "Status: offline (no socket file)."
+		return die_soon "Status: offline (no socket file).", 3
 
 	cb or= ignore
 
@@ -72,11 +72,9 @@ sendServerCmd = (_cmd, cb) =>
 						Daemon.doStart(false)
 						setTimeout retryConnect, readTimeout
 					else
-						echo "Status: offline (#{err.code}, #{_cmd})."
-						exit_soon 1
+						die_soon "Status: offline (#{err.code}, #{_cmd}).", 3
 				else if err.code in ['EADDRNOTAVAIL', 'ECONNREFUSED']
-					echo "Status: offline (#{err.code})."
-					exit_soon 1
+					die_soon "Status: offline (#{err.code}).", 3
 				else on_error err
 			connect: ->
 				try

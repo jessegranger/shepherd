@@ -70,7 +70,11 @@ function check() {
 }
 function check_result() {
 	echo -n "check_result $1 "
-	[ "$1" -eq 0 ] && pass || fail "Non-zero exit code: $1"
+	local expected="$2"
+	if [ -z "$expected" ]; then
+		local expected="0"
+	fi
+	[ "$1" -eq $expected ] && pass || fail "Bad exit code: $1 expected $expected."
 }
 function check_exists() {
 	echo -n "check_exists $1 "

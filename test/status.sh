@@ -2,7 +2,9 @@
 describe 'status'
 if it "$*" 'should do nothing if daemon is stopped'; then
 	check_init
-	check_contains "`shep status`" "Status: offline"
+	OUTPUT=$(shep status)
+	check_result "$?" "3"
+	check_contains "$OUTPUT" "Status: offline"
 	pass
 fi
 
@@ -13,7 +15,7 @@ if it "$*" 'should list - unstarted'; then
 	echo "add --group test --exec 'node echo_server.js $TEST_NAME' --count 1 --port $(next_port)" > $C
 	check_up
 	OUTPUT=$(shep status)
-	check [ "$?" -eq 0 ]
+	check_result "$?"
 	check_contains "$OUTPUT" "Status: online"
 	check_contains "$OUTPUT" "Groups: 1"
 	check_contains "$OUTPUT" "test-0"
@@ -31,7 +33,7 @@ if it "$*" 'should list - started'; then
 	check_up
 	check_process "echo_server.js $TEST_NAME" || cat "$(pwd)/.shep/log"
 	OUTPUT=$(shep status)
-	check [ "$?" -eq 0 ]
+	check_result "$?"
 	check_contains "$OUTPUT" "Status: online"
 	check_contains "$OUTPUT" "Groups: 1"
 	check_contains "$OUTPUT" "test-0"

@@ -44,7 +44,6 @@ Object.assign module.exports, {
 					line[7] = has_pid and (parseFloat(line[7]).toFixed(1) + "%") or line[1]
 					line[8] = has_pid and ($.commaize(Math.round(line[8]/1024)) + "mb") or line[1]
 					console.log pad_columns line
-			socket.end()
 		finally
 			socket?.end()
 

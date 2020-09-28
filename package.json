@@ -1,6 +1,6 @@
 {
 	"name": "the-shepherd",
-	"version": "0.3.27",
+	"version": "0.3.28",
 	"description": "Control a herd of wild processes.",
 	"bin": {
 		"shep": "bin/shep"
@@ -12,7 +12,7 @@
 	"author": "Jesse Granger <jesse_granger@fastmail.com>",
 	"repository": "https://github.com/jessegranger/shepherd.git",
 	"dependencies": {
-		"bling": "^0.12.0",
+		"bling": "^0.12.3",
 		"chalk": "^4.1.0",
 		"handlebars": "^4.7.6",
 		"shelljs": "^0.8.4"

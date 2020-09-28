@@ -26,11 +26,14 @@ $.log.out = (args...) ->
 	str = args.map($.toString).join ' '
 	if str[str.length - 1] isnt '\n'
 		str += '\n'
-	process.stdout.write str
-	outputStream.write str, 'utf8', =>
+	try process.stdout.write str
+	catch err
+		if err then process.stderr.write "Failed to write to stdout: " + $.toString err
+	outputStream.write str, 'utf8', (err) ->
+		if err then process.stderr.write "Failed to write to outputStream: " + $.toString err
 	return str
 
-setOutput = (file, cb) =>
+setOutput = (file, cb) ->
 	if outputFile is file and fileStream?
 		return cb?(null, false)
 	if not file?
@@ -56,10 +59,9 @@ setOutput = (file, cb) =>
 			cb?(err, false)
 	null
 
-toConfig = =>
-	outputFile and "log --file \"#{outputFile}\"" or ""
+toConfig = -> outputFile and "log --file \"#{outputFile}\"" or ""
 
-getOutputFile = => return outputFile and outputFile.substring(0)
+getOutputFile = -> return outputFile and outputFile.substring(0)
 
 Object.assign module.exports, { getOutputFile, setOutput, toConfig, stream: outputStream }
 

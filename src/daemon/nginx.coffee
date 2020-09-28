@@ -122,7 +122,7 @@ reloadNginx = (cb) =>
 		p = ChildProcess.exec reload, shell: true
 		p.stdout.on 'data', (data) -> echo "#{reload} (stdout)", data.toString("utf8")
 		p.stderr.on 'data', (data) -> echo "#{reload} (stderr)", data.toString("utf8")
-		_cb null, false
+		_cb null, true
 	null
 
 sync = (cb) =>
@@ -132,7 +132,7 @@ sync = (cb) =>
 		_cb or= nop
 		writeNginxFile (err, acted) =>
 			return _cb(err, false) if err
-			return _cb(null, false) if not acted
-			reloadNginx _cb
+			if acted then reloadNginx _cb
+			else _cb(null, false)
 
 Object.assign module.exports, { writeNginxFile, reloadNginx, setReload, setTemplate, setFile, setDisabled, toConfig, sync, defaults }

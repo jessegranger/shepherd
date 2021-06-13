@@ -121,8 +121,10 @@ class Proc
 				# @log oldValue + " -> " + v
 				$.log @group.toString()
 		}
-	
+
 	log: (args...) ->
+		for a,i in args
+			args[i] = a.replace(/\n([^\n]+)/mg, "\n[#{@id}] $1")
 		$.log "[#{@id}]", args...
 
 	# Start this process if it isn't already.

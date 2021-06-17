@@ -1,7 +1,5 @@
-{ $, echo, warn, verbose, required, echoResponse } = require '../common'
-{ actOnAll } = require '../daemon/groups'
+{ $, echo, echoResponse } = require '../common'
 Daemon = require '../daemon'
-{ int } = require '../util/format'
 
 Object.assign module.exports, {
 	options: [ ]

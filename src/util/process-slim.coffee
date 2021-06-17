@@ -67,8 +67,8 @@ is_child_of = (procs, ppid, pid) ->
 visitProcessTree = (pid, visit) =>
 	refresh_process_table_if_needed (err, procs) =>
 		procs[pid] and visit procs[pid], 0
-		walk = (_pid, level) =>
-			for _,proc of procs when proc?.ppid is _pid
+		walk = (cursor, level) =>
+			for _,proc of procs when proc?.ppid is cursor
 				visit proc, level
 				walk proc.pid, level + 1
 		walk pid, 1

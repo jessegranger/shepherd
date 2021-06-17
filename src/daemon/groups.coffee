@@ -33,12 +33,12 @@ class Group extends Array
 	enable: (cb) ->
 		acted = not @enabled
 		@enabled = true
-		if acted then @actOnAll 'enable', cb
+		if acted then @actOnAllGroups 'enable', cb
 		else cb?()
 	disable: (cb) ->
 		acted = @enabled
 		@enabled = false
-		if acted then @actOnAll 'disable', cb
+		if acted then @actOnAllGroups 'disable', cb
 		else cb?()
 	scale: (n, cb) ->
 		unless (isFinite(n) and not isNaN(n) and n >= 0)
@@ -85,7 +85,7 @@ class Group extends Array
 		for proc in @
 			proc.markAsInvalid reason
 		@
-	actOnAll: (method, cb) ->
+	actOnAllGroups: (method, cb) ->
 		progress = $.Progress(@length)
 		progress.wait (err) => cb(err, true)
 		for x in @
@@ -99,6 +99,17 @@ class Group extends Array
 			" --exec #{quoted @exec} --count #{@n}" +
 			(if @grace isnt DEFAULT_GRACE then " --grace #{@grace}" else "") +
 			(if @port then " --port #{@port}" else "")
+	containsPID: (pid) -> # returns true if the PID is a child of any group member
+		match = false
+		for x in @ # for all our children
+			# check all the processes in the tree they created
+			# and see if any of them is the one we are looking for
+			break if match
+			SlimProcess.visitProcessTree x, (proc) =>
+				# this is a synchronous callback
+				if proc.pid is owner.pid
+					match = true
+		return match
 
 class Proc
 	Proc.cooldown = 200
@@ -120,6 +131,9 @@ class Proc
 				statusString = v
 				# @log oldValue + " -> " + v
 				$.log @group.toString()
+		}
+		$.defineProperty @, 'pid', {
+			get: => @proc?.pid
 		}
 
 	log: (args...) ->
@@ -152,7 +166,7 @@ class Proc
 			if @port then SlimProcess.getPortOwner @port, (err, owner) =>
 				return cb() unless owner
 				# so, the @port is currently owned...
-				invalidPort = =>
+				invalidPort = (msg) =>
 					verbose "#{@id} Marking port #{@port} as invalid."
 					return done @markAsInvalid "invalid port"
 				this_uid = process.getuid()
@@ -160,14 +174,14 @@ class Proc
 				# 1) - dont kill processes owned by other users
 				if owner.uid isnt this_uid
 					return invalidPort()
-				# 2) - dont kill processes owned by any of our parents
-				SlimProcess.getProcessTable (err, procs) =>
-					verbose "#{@id} Checking if owner pid #{owner.pid} is one of our parents..."
-					SlimProcess.visitProcessTree process.pid, (proc) =>
-						invalidPort() if proc.pid is owner.pid
-						null
-					if @statusString isnt "invalid port"
-						verbose "#{@id} Owner pid #{owner.pid} is not managed by shepherd, killing it..."
+				# 2) - dont kill processes owned by any of our other groups
+				SlimProcess.getProcessTable (err, procs) => # this forces the process table cache to be fresh
+					verbose "#{@id} Checking if owner pid #{owner.pid} is managed by another group..."
+					managed = false
+					Groups.forEach (group) ->
+						managed or= group.containsPID(owner.pid)
+					if not managed
+						verbose "#{@id} Owner pid #{owner.pid} is not managed by another group, killing it..."
 						verbose owner
 						@statusString = "killing #{owner.pid}"
 						SlimProcess.killProcessTree owner.pid, 'SIGTERM', (err) =>
@@ -177,6 +191,7 @@ class Proc
 							setTimeout (=> clearPort cb), 1000
 					else
 						warn "#{@id} asked for PORT #{@port} but it is in-use by another group in this shepherd"
+						invalidPort()
 			else cb?()
 		retryStart = =>
 			if @started or not @enabled
@@ -344,24 +359,25 @@ actOnGroup = (method, groupId, cb) ->
 		group[method] (ret) =>
 			afterAction method, ret, cb
 	else
-		group.actOnAll method, (ret) =>
+		group.actOnAllGroups method, (ret) =>
 			afterAction method, ret, cb
 	false
 
-actOnAll = (method, cb) ->
+actOnAllGroups = (method, cb) ->
 	acted = false
 	progress = $.Progress(Groups.size + 1) \
-		.on("progress", (cur,max) -> echo "actOnAll[#{method}] progress:", progress.inspect()) \
+		.on("progress", (cur,max) -> echo "actOnAllGroups[#{method}] progress:", progress.inspect()) \
 		.wait => afterAction method, acted, cb
-	verbose "actOnAll[#{method}] started:", progress.inspect()
+	verbose "actOnAllGroups[#{method}] started:", progress.inspect()
 	finishOne = (err, act) =>
 		acted = act or acted
 		progress.finish 1
 	Groups.forEach (group) ->
+		return unless group?
 		if 'function' is typeof group[method]
 			group[method] finishOne
-		else for proc in group
-			proc[method]? finishOne
+		else for child in group
+			child[method]? finishOne
 	progress.finish 1
 
 addGroup = (name, cd=".", exec, count=1, port, grace=DEFAULT_GRACE, cb) ->
@@ -411,9 +427,9 @@ simpleAction = (method) -> (msg, client, cb) ->
 	switch
 		when msg.g then return actOnGroup method, msg.g, cb
 		when msg.i then return actOnInstance method, msg.i, cb
-		else return actOnAll method, cb
+		else return actOnAllGroups method, cb
 
-Object.assign module.exports, { Groups, actOnAll, actOnInstance, addGroup, removeGroup, simpleAction }
+Object.assign module.exports, { Groups, actOnAllGroups, actOnInstance, addGroup, removeGroup, simpleAction }
 
 # fulfill some out-of-order obligations
 Nginx = require './nginx'

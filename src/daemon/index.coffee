@@ -5,6 +5,7 @@
 Fs = require 'fs'
 Net = require 'net'
 Chalk = require 'chalk'
+Async = require 'async'
 Output = require './output'
 { Groups } = require('./groups')
 { Actions } = require('../actions')
@@ -46,21 +47,31 @@ doStop = (exit, client, cb) ->
 		if exit
 			return exit_soon 0
 	else
-		verbose "daemon/index Sending stop message to all groups..."
-		try Actions.stop.onMessage {}, null, (err) -> # send a stop command to all running instances
-			verbose "daemon/index All stop messages returned..."
-			# then kill the pid from the pid file
-			SlimProcess.killAllChildren pid, "SIGTERM", (err) ->
-				if err then warn "daemon/index Error from killAllChildren", err
+		Async.series [
+			(next) ->
+				verbose "daemon/index Sending stop message to all groups..."
+				try Actions.stop.onMessage {}, null, (err) -> # send a stop command to all running instances
+					verbose "daemon/index All stop messages returned..."
+					if err then warn "daemon/index error from Actions.stop.onMessage:", err
+					next()
+			(next) ->
+				# then kill the pid from the pid file
+				SlimProcess.killAllChildren pid, "SIGTERM", (err) ->
+					if err then warn "daemon/index Error from killAllChildren", err
+					next()
+			(next) ->
 				carefulUnlink pidFile, (err) ->
 					if err then warn "daemon/index Error while unlinking PID file (#{pidFile}):", err
-					carefulUnlink socketFile, (err) ->
-						if err then warn "daemon/index Error while unlinking unix socket (#{socketFile}):", err
-						cb(null, true)
-						if exit
-							return exit_soon 0
-		catch err then cb(err)
-	null
+					next()
+			(next) ->
+				carefulUnlink socketFile, (err) ->
+					if err then warn "daemon/index Error while unlinking unix socket (#{socketFile}):", err
+					next()
+		], (err) ->
+			if err then cb(err)
+			else cb(null, true)
+			if exit
+				return exit_soon 0
 
 doStatus = ->
 	$.log "Socket:", socketFile, if exists(socketFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")

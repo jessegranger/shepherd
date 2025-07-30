@@ -77,70 +77,76 @@ doStatus = ->
 	$.log "Socket:", socketFile, if exists(socketFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
 	$.log "PID File:", pidFile, if exists(pidFile) then Chalk.green("(exists)") else Chalk.yellow("(does not exist)")
 
+checkPidOrDie = (_pidFile, cb) ->
+	if exists(_pidFile)
+		_oldPid = readPid()
+		SlimProcess.isPidAlive _oldPid, (err, alive) ->
+			if alive then return die "Already running as PID:" + _oldPid
+			else carefulUnlink _pidFile, (err) ->
+				if err then die "Failed to unlink pid file (#{_pidFile}):", err
+				else cb()
+	else cb()
+
+checkSocketOrDie = (_socketFile, cb) ->
+	if exists(_socketFile)
+		carefulUnlink _socketFile, (err) ->
+			if err then return die "Failed to unlink old socket file (#{_socketFile}):", err
+			else cb()
+	else cb()
+
 started = false
 runDaemon = => # in the foreground
-	unless pidFile
-		return die "Daemon has no pidFile configured."
-
-	unless socketFile
-		return die "Daemon has no socketFile configured."
-
 	_pidFile = expandPath pidFile
 	_socketFile = expandPath socketFile
-
-	if exists(_pidFile)
-		return die "Already running as PID:" + readPid()
-
-	if exists(_socketFile)
-		return die "Socket file still exists:" + socketFile
-
-	Fs.writeFile _pidFile, String(process.pid), (err) =>
-		if err then return die "Failed to write pid file:", err
-		Output.setOutput outputFile, (err) =>
-			if err then return die "Failed to set output file:", err
-			echo "Opening master socket...", socketFile
-			socket = Net.Server().listen path: _socketFile
-			socket.on 'error', (err) ->
-				echo "Failed to open local socket:", $.debugStack err
-				return exit_soon 1
-			socket.on 'connection', (client) ->
-				client.on 'error', (err) ->
-					warn "client error:", err
-				client.on 'data', (msg) ->
-					start = Date.now()
-					msg = $.TNET.parse(msg.toString())
-					handleMessage msg, client, (err, acted) =>
-						if err then try
-							warn msg, "caused", $.debugStack(err)
-							return client?.write $.TNET.stringify $.debugStack(err)
-						_msg = Object.create null
-						for k,v of msg when v? then _msg[k] = v
-						echo "Command handled:", _msg, "in", (Date.now() - start), "ms"
-			shutdown = (signal) -> ->
-				echo "#{signal}: Shutting down from signal..."
-				verbose "#{signal}: Closing master socket..."
-				try socket.close()
-				catch err
-					warn "Failed to close socket: ", err
-				verbose "#{signal}: Stopping all groups..."
-				progress = $.Progress(Groups.size + 1)
-				Groups.forEach (group) -> group.stop (err) ->
-					if err then progress.reject(err)
-					else progress.finish 1
-				progress.finish(1).wait ->
-					verbose "#{signal}: Unlinking PID file..."
-					try Fs.unlinkSync(_pidFile)
-					catch err
-						warn "Failed to unlink pid file (#{_pidFile}):", err
-					if signal isnt 'exit'
-						verbose "#{signal}: Scheduling delayed exit..."
-						return exit_soon 0, 2000
-				null
-			for sig in ['SIGINT','SIGTERM','exit']
-				verbose "Signal #{sig}: attaching handler..."
-				process.on sig, shutdown(sig) 
-			readConfig()
-			started = true
+	checkPidOrDie _pidFile, ->
+		checkSocketOrDie _socketFile, ->
+			Fs.writeFile _pidFile, String(process.pid), (err) =>
+				if err then return die "Failed to write pid file:", err
+				Output.setOutput outputFile, (err) =>
+					if err then return die "Failed to set output file:", err
+					echo "Opening master socket...", socketFile
+					socket = Net.Server().listen path: _socketFile
+					socket.on 'error', (err) ->
+						echo "Failed to open local socket:", $.debugStack err
+						return exit_soon 1
+					socket.on 'connection', (client) ->
+						client.on 'error', (err) ->
+							warn "client error:", err
+						client.on 'data', (msg) ->
+							start = Date.now()
+							msg = $.TNET.parse(msg.toString())
+							handleMessage msg, client, (err, acted) =>
+								if err then try
+									warn msg, "caused", $.debugStack(err)
+									return client?.write $.TNET.stringify $.debugStack(err)
+								_msg = Object.create null
+								for k,v of msg when v? then _msg[k] = v
+								echo "Command handled:", _msg, "in", (Date.now() - start), "ms"
+					shutdown = (signal) -> ->
+						echo "#{signal}: Shutting down from signal..."
+						verbose "#{signal}: Closing master socket..."
+						try socket.close()
+						catch err
+							warn "Failed to close socket: ", err
+						verbose "#{signal}: Stopping all groups..."
+						progress = $.Progress(Groups.size + 1)
+						Groups.forEach (group) -> group.stop (err) ->
+							if err then progress.reject(err)
+							else progress.finish 1
+						progress.finish(1).wait ->
+							verbose "#{signal}: Unlinking PID file..."
+							try Fs.unlinkSync(_pidFile)
+							catch err
+								warn "Failed to unlink pid file (#{_pidFile}):", err
+							if signal isnt 'exit'
+								verbose "#{signal}: Scheduling delayed exit..."
+								return exit_soon 0, 2000
+						null
+					for sig in ['SIGINT','SIGTERM','exit']
+						verbose "Signal #{sig}: attaching handler..."
+						process.on sig, shutdown(sig) 
+					readConfig()
+					started = true
 
 doStart = (exit) => # launch the daemon in the background and exit
 	echo "Starting daemon..."

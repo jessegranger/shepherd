@@ -224,7 +224,7 @@ class Proc
 					@markAsInvalid err.message
 					return done(err, false)
 				verbose "exec:", @exec, "as", @id
-				opts = { shell: true, cwd: @cd, env: env }
+				opts = { shell: true, cwd: @cd, env: env, stdio: ['pipe', 'pipe', 'pipe'] }
 				if not exists(@cd)
 					return @stop => @group.markAsInvalid "invalid dir"
 				@proc = ChildProcess.spawn @exec, opts
@@ -268,8 +268,8 @@ class Proc
 					checkStarted = setTimeout finishStarting, @group.grace
 				
 				# Connect the process output to our log writer.
-				@proc.stdout.on 'data', (data) => @log data.toString("utf8")
-				@proc.stderr.on 'data', (data) => @log "(stderr)", data.toString("utf8")
+				@proc.stdout?.on 'data', (data) => @log data.toString("utf8")
+				@proc.stderr?.on 'data', (data) => @log "(stderr)", data.toString("utf8")
 				@proc.on 'exit', (code, signal) =>
 					clearTimeout checkStarted
 					@started = false

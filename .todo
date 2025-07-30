@@ -2,3 +2,6 @@
 5. need to detect invalid nginx config
 6. disable causes read timeout from the client
 7. enable also causes read timeout from the client
+8. nginx --reload-now needs a --force option
+9. bug: actOnAll[start] progress: {Progress[rWLOqX] 31/10}
+10. during a crash, if pid is deleted but not socket, fails to recover

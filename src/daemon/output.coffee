@@ -1,4 +1,4 @@
-{ $, echo, verbose } = require '../common'
+{ $, die, echo, verbose } = require '../common'
 Fs = require 'fs'
 { Writable } = require 'stream'
 { outputFile, expandPath } = require '../files'
@@ -22,10 +22,13 @@ outputStream = new Writable {
 		null
 }
 
-$.log.out = (args...) ->
-	str = args.map($.toString).join ' '
+dataToOutputLine = (label, data) => 
+	str = (if label? then "#{label} " else "") + data.toString("utf8")
 	if str[str.length - 1] isnt '\n'
 		str += '\n'
+
+$.log.out = (args...) ->
+	str = dataToOutputLine(null, args.map($.toString).join ' ')
 	try process.stdout.write str
 	catch err
 		if err then process.stderr.write "Failed to write to stdout: " + $.toString err
@@ -33,7 +36,7 @@ $.log.out = (args...) ->
 		if err then process.stderr.write "Failed to write to outputStream: " + $.toString err
 	return str
 
-setOutput = (file, cb) ->
+setOutputFile = (file, cb) ->
 	if outputFile is file and fileStream?
 		return cb?(null, false)
 	if not file?
@@ -49,12 +52,12 @@ setOutput = (file, cb) ->
 				cb?(null, true)
 			s.on 'close', ->
 				console.log "writeStream close:", file
-				setOutput null, cb
+				setOutputFile null, cb
 			s.on 'error', (err) ->
 				console.error "writeStream error:", (err.stack ? err)
-				setOutput null, cb
+				setOutputFile null, cb
 		catch err
-			console.error "setOutput error:", (err.stack ? err)
+			console.error "setOutputFile error:", (err.stack ? err)
 			outputFile = fileStream = null
 			cb?(err, false)
 	null
@@ -63,7 +66,7 @@ toConfig = -> outputFile and "log --file \"#{outputFile}\"" or ""
 
 getOutputFile = -> return outputFile and outputFile.substring(0)
 
-Object.assign module.exports, { getOutputFile, setOutput, toConfig, stream: outputStream }
+Object.assign module.exports, { getOutputFile, setOutputFile, toConfig, stream: outputStream }
 
 process.stdout.on 'error', (err) ->
 	if err.code is "EPIPE"

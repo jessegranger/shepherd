@@ -14,4 +14,5 @@ ROOT=$(pwd)/test
 . $ROOT/restart.sh && \
 . $ROOT/nginx.sh && \
 . $ROOT/health.sh && \
+. $ROOT/log.sh && \
 echo "Done"

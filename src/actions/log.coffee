@@ -22,9 +22,9 @@ Object.assign module.exports, {
 			catch err
 				return cb?(err, false)
 		if msg.f
-			Output.setOutput msg.f, (err, acted) => acted and send msg.f
+			Output.setOutputFile msg.f, (err, acted) => acted and send msg.f
 		if msg.d
-			Output.setOutput null, (err, acted) => acted and send msg.d
+			Output.setOutputFile null, (err, acted) => acted and send msg.d
 		if msg.p
 			outputFile = Output.getOutputFile()
 			if exists(outputFile)

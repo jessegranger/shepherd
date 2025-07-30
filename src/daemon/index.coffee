@@ -102,7 +102,7 @@ runDaemon = => # in the foreground
 		checkSocketOrDie _socketFile, ->
 			Fs.writeFile _pidFile, String(process.pid), (err) =>
 				if err then return die "Failed to write pid file:", err
-				Output.setOutput outputFile, (err) =>
+				Output.setOutputFile outputFile, (err) =>
 					if err then return die "Failed to set output file:", err
 					echo "Opening master socket...", socketFile
 					socket = Net.Server().listen path: _socketFile

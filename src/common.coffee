@@ -19,7 +19,7 @@ required = (msg, key, label) -> switch true
 	when not msg[key] and msg[key].length then warn "#{label} is required."
 	else true
 
-echoResponse = (resp, socket) -> echo resp
+echoResponse = (resp, socket) -> echo resp; socket?.end()
 
 Object.assign module.exports, { $, cmd, echo, warn, verbose, exit_soon, die, die_soon,
 	required, echoResponse, quoted, setVerbose }

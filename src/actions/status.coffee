@@ -25,7 +25,7 @@ Object.assign module.exports, {
 			console.log "Status: online, pid: #{resp.pid} net: (#{resp.send - resp.start}ms, #{Date.now() - resp.send}ms)"
 			console.log "Groups: #{resp.groups.length}"
 
-			pad_columns = (a,w=[19, 7, 7, 10, 8, 8, 14, 7, 7]) ->
+			pad_columns = (a,w=[19, 8, 7, 10, 8, 8, 14, 7, 7]) ->
 				(($.padLeft String(item ? ''), w[i]) for item,i in a ).join ''
 
 			for group,g in resp.groups
